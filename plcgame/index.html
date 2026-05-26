@@ -1,0 +1,2661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D PLC Simulator - Ultimate Beginner Academy & HMI POV</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #06080c;
+            color: #f1f5f9;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        /* CCTV Scanline CRT Monitor effect */
+        .cctv-scanlines {
+            position: relative;
+        }
+        .cctv-scanlines::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
+            background-size: 100% 4px, 6px 100%;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Diagonal Industrial Caution Stripes */
+        .caution-stripes {
+            background: repeating-linear-gradient(
+                -45deg,
+                #f59e0b,
+                #f59e0b 8px,
+                #0f172a 8px,
+                #0f172a 16px
+            );
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        /* Highlight classes for glow effects */
+        .glow-green { box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); border-color: #10b981 !important; }
+        .glow-cyan { box-shadow: 0 0 15px rgba(6, 182, 212, 0.5); border-color: #06b6d4 !important; }
+        .glow-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); border-color: #ef4444 !important; }
+
+        /* Interactive Guided Tour Target Box */
+        #tourHighlighter {
+            box-shadow: 0 0 0 9999px rgba(3, 7, 18, 0.9);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        /* Custom Drag & Drop styles */
+        .dragging {
+            opacity: 0.4;
+            border: 2px dashed #06b6d4 !important;
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <!-- Top Navigation Bar & Global Status Tracker -->
+    <header id="topHeader" class="bg-slate-950 border-b border-slate-800 px-6 py-2 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <span class="relative flex h-3.5 w-3.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-cyan-500"></span>
+                </span>
+                <h1 class="text-base font-bold tracking-wider text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-industry text-cyan-400"></i> APEX-3D PLC ACADEMY v6.3
+                </h1>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-400">
+                STATION: <span class="text-cyan-400 font-bold">OPERATOR_POV_01</span>
+            </span>
+        </div>
+
+        <!-- HMI Global Indicators -->
+        <div class="flex items-center space-x-6">
+            <div class="flex items-center space-x-2 text-sm bg-slate-900 px-3 py-1 rounded border border-slate-800">
+                <span class="text-xs text-slate-400">SYS_MODE:</span>
+                <span id="sysModeBadge" class="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold">IDLE</span>
+            </div>
+            <div class="flex items-center space-x-2 text-xs border-l border-slate-800 pl-4">
+                <span class="text-slate-400 font-medium">SORTED:</span>
+                <span id="cycleCounter" class="text-cyan-400 font-bold text-sm">00000</span>
+            </div>
+            <!-- Interactive Wallet Economy HUD -->
+            <div class="flex items-center space-x-2 text-xs border-l border-slate-800 pl-4">
+                <span class="text-slate-400 font-medium">FUNDS:</span>
+                <span class="text-yellow-400 font-extrabold text-sm flex items-center gap-1 bg-yellow-950/40 px-2 py-1 rounded border border-yellow-800/40 font-bold">
+                    <i class="fa-solid fa-dollar-sign text-yellow-500 animate-pulse"></i>
+                    <span id="walletValue">0</span>
+                </span>
+            </div>
+            <div class="flex items-center space-x-4 border-l border-slate-800 pl-4">
+                <button id="toggleAudio" class="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded text-slate-300 transition-colors" title="Toggle Soundscape">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <button onclick="startTour()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(79,70,229,0.4)]">
+                    <i class="fa-solid fa-circle-play"></i> REPLAY TOUR
+                </button>
+                <button onclick="resetAcademy()" class="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-800/50 rounded text-rose-400 transition text-xs font-bold">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> RESET
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Splitter -->
+    <main class="flex-1 flex flex-col lg:flex-row min-h-0 relative">
+
+        <!-- LEFT SIDE: Factory & Controls -->
+        <div id="leftCol" class="w-full lg:w-7/12 flex flex-col min-h-0 border-r border-slate-800 relative bg-slate-950 transition-all duration-300">
+            
+            <!-- 3D Viewport (The Factory floor CCTV feeds) -->
+            <div id="factoryViewContainer" class="flex-1 relative cctv-scanlines min-h-[250px] bg-black">
+                
+                <!-- CCTV Status Info HUD -->
+                <div id="cctvHud" class="absolute top-4 left-4 z-10 bg-black/90 px-4 py-2.5 rounded border border-slate-800 backdrop-blur pointer-events-auto flex flex-col space-y-1 shadow-[0_0_20px_rgba(0,0,0,0.8)]">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
+                        <span class="text-xs font-bold text-red-500 tracking-wider">CCTV LIVE - REC</span>
+                    </div>
+                    <span id="activeCamName" class="text-[11px] text-slate-300">CAM-01: CONTROL ROOM POV</span>
+                    <span id="cctvTimestamp" class="text-[10px] text-slate-500 font-mono">15:25:01</span>
+                </div>
+
+                <!-- First-Person Roam Floating Mini HUD -->
+                <div id="walkHud" class="hidden absolute top-4 right-4 z-20 bg-slate-950/95 border border-slate-800 p-4 rounded-xl flex flex-col space-y-2.5 pointer-events-none shadow-2xl w-64">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                        <span class="text-[10px] text-cyan-400 font-bold tracking-wider">WALK TELEMETRY</span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400">My Funds:</span>
+                        <span class="text-yellow-400 font-extrabold flex items-center gap-1">
+                            <i class="fa-solid fa-dollar-sign text-yellow-500"></i>
+                            <span id="walkWalletValue" class="font-bold">0</span>
+                        </span>
+                    </div>
+                    <div class="border-t border-slate-700 pt-2 flex flex-col space-y-1">
+                        <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Current Target:</span>
+                        <span id="walkActiveTask" class="text-xs text-slate-200 font-medium">Conveyor Control</span>
+                        <div id="walkOrderProgressContainer" class="text-[10px] text-slate-400 hidden">
+                            Progress: <span id="walkOrderProgress" class="text-white font-bold">0 / 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CCTV Camera Toggles & Free Roam Walk Trigger -->
+                <div id="cctvToggles" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-black/95 p-1.5 rounded-lg border border-slate-800 flex space-x-2 backdrop-blur pointer-events-auto shadow-[0_0_25px_rgba(0,0,0,0.9)] text-xs">
+                    <button onclick="changeCamera(1)" id="camBtn-1" class="px-2.5 py-1.5 rounded font-bold bg-cyan-600 text-white shadow">CAM 01: POV</button>
+                    <button onclick="changeCamera(2)" id="camBtn-2" class="px-2.5 py-1.5 rounded font-bold text-slate-400 hover:text-white bg-slate-900 transition">CAM 02: Track</button>
+                    <button onclick="changeCamera(3)" id="camBtn-3" class="px-2.5 py-1.5 rounded font-bold text-slate-400 hover:text-white bg-slate-900 transition">CAM 03: Sorter</button>
+                    <button onclick="changeCamera(4)" id="camBtn-4" class="px-2.5 py-1.5 rounded font-bold text-slate-400 hover:text-white bg-slate-900 transition">CAM 04: Chute</button>
+                    <button onclick="changeCamera(5)" id="camBtn-5" class="px-3 py-1.5 rounded font-bold text-yellow-400 hover:text-yellow-300 bg-yellow-950/30 border border-yellow-800/40 transition flex items-center gap-1 animate-pulse">
+                        <i class="fa-solid fa-person-walking"></i> Move Around
+                    </button>
+                </div>
+
+                <!-- Free Roam Walking Instructions Overlay -->
+                <div id="walkOverlayInstructions" class="hidden absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 bg-slate-900/90 border border-cyan-700 px-6 py-4 rounded-xl text-center shadow-[0_0_30px_rgba(6,182,212,0.4)] pointer-events-none">
+                    <div class="font-bold text-cyan-400 mb-2 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-keyboard text-lg"></i> EXPLORATION MODE
+                    </div>
+                    <p class="text-slate-300 text-xs mb-1">Use <strong>WASD</strong> or <strong>Arrows</strong> to move. <strong>Mouse Drag</strong> to look.</p>
+                    <p class="text-yellow-400 font-bold text-xs animate-pulse mt-2 border-t border-slate-700 pt-2">Walk up to the Operator Desk window to restore the UI!</p>
+                </div>
+
+                <!-- Alarm Warning Overlay -->
+                <div id="alarmBanner" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 bg-red-950/95 border-2 border-red-500 p-6 rounded-xl text-center shadow-2xl">
+                    <i class="fa-solid fa-triangle-exclamation text-red-400 text-5xl animate-pulse mb-3"></i>
+                    <h2 class="text-white font-bold text-lg">EMERGENCY STOP (ESTOP) ACTIVE</h2>
+                    <p class="text-red-200 text-xs mt-1">Virtual current cut off. Twist/Release E-STOP on the desk to resume.</p>
+                </div>
+
+                <!-- ThreeJS Canvas goes here -->
+                <div id="webglContainer" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+            </div>
+
+            <!-- Operator Physical Control Desk / Panel -->
+            <div id="controlDeskContainer" class="bg-slate-900 flex flex-col shrink-0 border-t border-slate-800 relative transition-all duration-300">
+                <!-- Industrial Stripes Divider Accent -->
+                <div class="h-1 caution-stripes w-full"></div>
+                
+                <div class="p-4 flex flex-col space-y-3">
+                    <div class="flex items-center justify-between text-xs text-slate-400 mb-1 uppercase tracking-wider">
+                        <span><i class="fa-solid fa-sliders text-cyan-400 mr-1.5"></i> Physical HMI Operator Desk (Interactable Switches)</span>
+                        <span class="text-slate-500">Inputs control your ladder logic conditions</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Physical Heavy Buttons -->
+                        <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center shadow-inner">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-slate-400 font-bold mb-1">START_PB (I:0/2)</span>
+                                <button id="hmiStart" class="w-14 h-14 rounded-full bg-emerald-700 hover:bg-emerald-600 border-4 border-slate-800 text-white text-xs font-bold shadow-lg active:scale-95 transition-all glow-green">
+                                    RUN
+                                </button>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] text-slate-400 font-bold mb-1">STOP_PB (I:0/3)</span>
+                                <button id="hmiStop" class="w-14 h-14 rounded-full bg-rose-700 hover:bg-rose-600 border-4 border-slate-800 text-white text-xs font-bold shadow-lg active:scale-95 transition-all">
+                                    STOP
+                                </button>
+                            </div>
+                            <div class="flex flex-col items-center pl-4 border-l border-slate-800">
+                                <span class="text-[10px] text-rose-400 font-bold mb-1">E-STOP (I:0/4)</span>
+                                <button id="hmiEstop" class="w-14 h-14 rounded bg-red-600 hover:bg-red-500 border-4 border-yellow-500 text-white font-extrabold text-[11px] shadow-lg shadow-red-950 active:scale-95 transition-all animate-pulse">
+                                    E-STOP
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Sensor Override Toggle Switch Panel -->
+                        <div class="bg-slate-950 p-3 rounded border border-slate-800 grid grid-cols-2 gap-3 text-xs shadow-inner">
+                            <!-- Photo-Eye Trigger -->
+                            <div class="flex flex-col items-center justify-center p-2 bg-slate-900/50 rounded border border-slate-800/40">
+                                <span class="text-[10px] text-slate-400 font-bold text-center mb-1.5">I:0/0 PE_SENS (Proximity)</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[9px] text-slate-500">OFF</span>
+                                    <button id="toggleSensor0" class="w-12 h-6 bg-slate-700 rounded-full p-1 transition-colors relative">
+                                        <div class="w-4 h-4 bg-white rounded-full transition-transform transform translate-x-0" id="toggleSensorKnob0"></div>
+                                    </button>
+                                    <span class="text-[9px] text-emerald-400">ON</span>
+                                </div>
+                            </div>
+
+                            <!-- Color Target Sorting Selector -->
+                            <div class="flex flex-col items-center justify-center p-2 bg-slate-900/50 rounded border border-slate-800/40">
+                                <span class="text-[10px] text-slate-400 font-bold text-center mb-1.5">HMI COLOR TARGET</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[9px] text-rose-500 font-bold">RED</span>
+                                    <button id="toggleSensor1" class="w-12 h-6 bg-emerald-600 rounded-full p-1 transition-all relative">
+                                        <div class="w-4 h-4 bg-white rounded-full transition-all transform translate-x-6" id="toggleSensorKnob1"></div>
+                                    </button>
+                                    <span class="text-[9px] text-emerald-400 font-bold">GREEN</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Motor speed RPM adjust potentiometer -->
+                    <div class="mt-3 flex items-center justify-between gap-4 p-2 bg-slate-950/60 rounded border border-slate-800 text-xs">
+                        <span class="text-slate-400 font-bold"><i class="fa-solid fa-gauge text-cyan-400 mr-1"></i> CONVEYOR SPEED POTENTIOMETER:</span>
+                        <div class="flex items-center space-x-3 flex-1 max-w-sm">
+                            <input id="speedKnob" type="range" min="35" max="140" value="60" class="w-full accent-cyan-400 bg-slate-800 cursor-pointer rounded-lg appearance-none h-1.5">
+                            <span id="speedDisplay" class="text-cyan-400 font-bold w-16 text-right">60 RPM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDE: Logic & Education -->
+        <div id="rightPanel" class="w-full lg:w-5/12 flex flex-col min-h-0 bg-slate-950 relative transition-all duration-300">
+            
+            <!-- Academy Guide Panel (The Interactive Class Guide) -->
+            <div id="academyPanelContainer" class="bg-gradient-to-r from-slate-900 to-cyan-950/30 border-b border-slate-800 p-4 shrink-0">
+                <div class="flex justify-between items-center mb-2">
+                    <span id="academyTag" class="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-[10px] font-bold rounded uppercase tracking-wider">
+                        Academy Module Classroom
+                    </span>
+                    <span class="text-xs text-slate-400"><span id="lessonNumWrap">Lesson <span id="lessonNum" class="text-white font-bold">1</span> / 3</span></span>
+                </div>
+                <h2 id="lessonTitle" class="text-sm font-bold text-white mb-1.5"><i class="fa-solid fa-graduation-cap text-cyan-400 mr-1.5"></i> Loading Lesson...</h2>
+                <p id="lessonPrompt" class="text-xs text-slate-400 leading-relaxed min-h-[50px] mb-2">
+                    ...
+                </p>
+                <div class="bg-black/60 p-2.5 rounded border border-slate-800/80 flex items-center justify-between text-xs">
+                    <span class="text-slate-200 flex items-center font-bold">
+                        <i id="goalIcon" class="fa-regular fa-circle text-yellow-500 mr-2 animate-pulse"></i> 
+                        <span id="lessonGoal" class="font-semibold text-slate-100">Goal conditions</span>
+                    </span>
+                    <button id="skipLessonBtn" onclick="bypassLesson()" class="text-xs text-cyan-500 hover:text-cyan-300 underline font-bold cursor-pointer">Skip Mission ➔</button>
+                </div>
+            </div>
+
+            <!-- Double Workspace Selector Tabs: Ladder vs Upgrades Shop -->
+            <div class="bg-slate-950 border-b border-slate-800 px-4 py-2 flex space-x-2 shrink-0 text-xs">
+                <button id="tabLadderBtn" onclick="switchRightTab('ladder')" class="px-3 py-1.5 rounded font-bold bg-slate-900 border border-slate-800 text-cyan-400 flex items-center gap-1">
+                    <i class="fa-solid fa-code-fork"></i> LADDER WORKSPACE
+                </button>
+                <button id="tabShopBtn" onclick="switchRightTab('shop')" class="px-3 py-1.5 rounded font-bold bg-slate-950 border border-transparent text-slate-400 hover:text-white flex items-center gap-1 relative">
+                    <i class="fa-solid fa-shop text-yellow-500"></i> PLC UPGRADE SHOP
+                    <span id="shopAlertBadge" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse hidden"></span>
+                </button>
+            </div>
+
+            <!-- Ladder Logic Workspace Editor -->
+            <div id="ladderWorkspaceContainer" class="flex-1 flex flex-col min-h-0 bg-[#07090e]">
+                <!-- Toolbar -->
+                <div class="bg-slate-900 border-b border-slate-800 p-3 shrink-0 flex items-center justify-between text-xs">
+                    <div class="flex space-x-2 items-center">
+                        <span class="text-slate-500 font-bold">TOOLBOX:</span>
+                        <button onclick="selectElement('NO')" id="palette-NO" class="px-3 py-1.5 bg-cyan-900/50 border border-cyan-500 rounded text-cyan-300 font-bold transition">
+                            -[ ]- Contact (NO)
+                        </button>
+                        <button onclick="selectElement('NC')" id="palette-NC" class="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
+                            -[/]- Contact (NC) <span id="ncPaletteLock" class="text-[9px] bg-yellow-950 text-yellow-400 px-1 rounded border border-yellow-800/40">🔒 Locked</span>
+                        </button>
+                    </div>
+                    <button id="btnCompile" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded shadow-lg transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> UPLOAD TO PLC
+                    </button>
+                </div>
+
+                <!-- Live Compilation Alert Banner -->
+                <div id="compilerAlert" class="bg-amber-950/60 border-b border-amber-800 px-4 py-2 text-[11px] text-amber-300 flex items-center justify-between transition-all hidden">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation text-amber-400 animate-pulse"></i> <strong>OFFLINE DRAFT:</strong> Program modified. Click 'UPLOAD TO PLC' to deploy and monitor power.</span>
+                </div>
+
+                <!-- Canvas workspace -->
+                <div class="flex-1 overflow-y-auto p-4 flex flex-col space-y-4">
+                    <div id="ladderContainer" class="flex flex-col space-y-4">
+                        <!-- Rungs dynamically generated -->
+                    </div>
+                    
+                    <button onclick="addRung()" class="w-full py-3 bg-slate-900/40 border border-dashed border-slate-800 hover:border-cyan-500 rounded-lg text-xs text-slate-400 hover:text-cyan-400 font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus-circle"></i> ADD NEW ELECTRICAL RUNWAY
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upgrades Shop Container Panel -->
+            <div id="shopWorkspaceContainer" class="flex-1 flex flex-col min-h-0 bg-[#070e17] hidden overflow-y-auto p-4 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h3 class="text-xs font-bold text-yellow-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-shop"></i> PLC Machine Upgrades Store
+                    </h3>
+                    <span class="text-[10px] text-slate-400">Upgrade automation hardware with sorted cargo payouts!</span>
+                </div>
+
+                <!-- Upgrade Items List -->
+                <div class="space-y-3">
+                    <!-- Speed Potentiometer Upgrade -->
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                        <div class="flex-1 pr-3">
+                            <h4 class="text-xs font-bold text-white flex items-center gap-1">
+                                <i class="fa-solid fa-gauge-high text-cyan-400"></i> Conveyor Booster Kit
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Allows the conveyor speed potentiometer to crank up to 200 RPM to sort packages twice as fast!</p>
+                        </div>
+                        <button id="buySpeedBtn" onclick="buyUpgrade('speedBoost', 100)" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap font-bold">
+                            $100 Buy
+                        </button>
+                    </div>
+
+                    <!-- NC Contacts License Upgrade -->
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                        <div class="flex-1 pr-3">
+                            <h4 class="text-xs font-bold text-white flex items-center gap-1">
+                                <i class="fa-solid fa-circle-nodes text-indigo-400"></i> Normally Closed (NC) License
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Unlocks standard Normally Closed `-[/]-` contacts in the editor, allowing you to configure industrial failsafe stop gates!</p>
+                        </div>
+                        <button id="buyNCBtn" onclick="buyUpgrade('NCUnlocked', 150)" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap font-bold">
+                            $150 Buy
+                        </button>
+                    </div>
+
+                    <!-- Pneumatic Super-Valve Tank Upgrade -->
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                        <div class="flex-1 pr-3">
+                            <h4 class="text-xs font-bold text-white flex items-center gap-1">
+                                <i class="fa-solid fa-wind text-emerald-400"></i> Rapid Sorter Pneumatic Valve
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Decreases sorting piston delays and doubles the retraction rate so no consecutive boxes slip through!</p>
+                        </div>
+                        <button id="buyPistonBtn" onclick="buyUpgrade('fastPiston', 200)" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap font-bold">
+                            $200 Buy
+                        </button>
+                    </div>
+
+                    <!-- Ambient Cyber-Spark Upgrade -->
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                        <div class="flex-1 pr-3">
+                            <h4 class="text-xs font-bold text-white flex items-center gap-1">
+                                <i class="fa-solid fa-wand-magic-sparkles text-pink-400"></i> Sorting Spark FX
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Ejects high-voltage glowing cyber sparks in 3D space whenever cargo is correctly classified!</p>
+                        </div>
+                        <button id="buySparksBtn" onclick="buyUpgrade('particleSpark', 50)" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap font-bold">
+                            $50 Buy
+                        </button>
+                    </div>
+
+                    <!-- UNLOCK STAMPING PRESS BAY -->
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                        <div class="flex-1 pr-3">
+                            <h4 class="text-xs font-bold text-yellow-400 flex items-center gap-1">
+                                <i class="fa-solid fa-gavel"></i> Unlock Hydraulic Press Bay
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Installs a heavy industrial stamping press machine on the floor, unlocking the `Press Sensor (I:0/4)` and `Stamping Press (O:0/2)` registers!</p>
+                        </div>
+                        <button id="buyPressBtn" onclick="buyUpgrade('pressUnlocked', 300)" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap font-bold">
+                            $300 Buy
+                        </button>
+                    </div>
+
+                    <!-- UNLOCK LASER ENGRAVER BAY -->
+                    <div class="p-3 bg-slate-900 rounded border border-slate-800 flex items-center justify-between">
+                        <div class="flex-1 pr-3">
+                            <h4 class="text-xs font-bold text-yellow-400 flex items-center gap-1">
+                                <i class="fa-solid fa-bolt"></i> Unlock Laser Engraver Bay
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Constructs a high-frequency laser marker next to the conveyor line, unlocking the `Laser Ready (I:0/5)` and `Laser Marker (O:0/3)` registers!</p>
+                        </div>
+                        <button id="buyLaserBtn" onclick="buyUpgrade('laserUnlocked', 500)" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap font-bold">
+                            $500 Buy
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simple Diagnostic I/O Health Lights -->
+            <div class="bg-slate-900 border-t border-slate-800 p-3 shrink-0 grid grid-cols-2 gap-4 text-xs font-bold">
+                <div>
+                    <h3 class="text-slate-400 font-bold mb-2 tracking-wide uppercase"><i class="fa-solid fa-arrow-right text-emerald-400"></i> Hardwired Inputs</h3>
+                    <div class="space-y-1.5 bg-slate-950 p-2 rounded border border-slate-800/40">
+                        <div class="flex justify-between items-center"><span class="text-slate-300">START_PB (I:0/2)</span> <div id="io-I2" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">PE_SENS (I:0/0)</span> <div id="io-I0" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300 font-bold">COL_MATCH (I:0/1)</span> <div id="io-I1" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center text-slate-500" id="diagI4Row"><span id="diagI4Label">PRESS_SEN (I:0/4)</span> <div id="io-I4" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center text-slate-500" id="diagI5Row"><span id="diagI5Label">LASER_RDY (I:0/5)</span> <div id="io-I5" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-slate-400 font-bold mb-2 tracking-wide uppercase"><i class="fa-solid fa-arrow-left text-cyan-400"></i> Hardwired Outputs</h3>
+                    <div class="space-y-1.5 bg-slate-950 p-2 rounded border border-slate-800/40">
+                        <div class="flex justify-between items-center"><span class="text-slate-400">MOTOR (O:0/0)</span> <div id="io-O0" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-400">PISTON (O:0/1)</span> <div id="io-O1" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center text-slate-500" id="diagO2Row"><span id="diagO2Label">PRESS_SOL (O:0/2)</span> <div id="io-O2" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                        <div class="flex justify-between items-center text-slate-500" id="diagO3Row"><span id="diagO3Label">LASER_SOL (O:0/3)</span> <div id="io-O3" class="w-2.5 h-2.5 rounded-full bg-slate-800 transition-colors"></div></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- FULL SCREEN INTERACTIVE GUIDED TOUR OVERLAY -->
+    <div id="tourOverlay" class="fixed inset-0 z-[100] hidden">
+        <!-- Dimmer background -->
+        <div class="absolute inset-0 bg-slate-950/80"></div>
+        
+        <!-- Moving Highlight Box -->
+        <div id="tourHighlighter" class="absolute border-4 border-cyan-400 rounded-lg z-[101] shadow-[0_0_25px_rgba(6,182,212,0.8)]"></div>
+
+        <!-- Tour Step Box -->
+        <div id="tourDialog" class="absolute z-[102] bg-slate-900 border-2 border-cyan-500 rounded-xl p-6 w-[420px] shadow-2xl transition-all duration-300 transform">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-950 border border-cyan-700/40 flex items-center justify-center">
+                    <i class="fa-solid fa-graduation-cap text-cyan-400 text-xl"></i>
+                </div>
+                <h2 id="tourTitle" class="text-base font-bold text-white">PLC Academy Guide</h2>
+            </div>
+            <p id="tourDesc" class="text-xs text-slate-300 mb-6 leading-relaxed">
+                Welcome! A PLC (Programmable Logic Controller) is an industrial computer used to control factory robots and conveyors. Let me show you how to navigate your workstation.
+            </p>
+            <div class="flex justify-between items-center border-t border-slate-800 pt-4">
+                <span class="text-xs text-slate-500 font-bold" id="tourProgress">Step 1 of 5</span>
+                <button onclick="nextTourStep()" id="tourNextBtn" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 px-5 py-2 rounded font-bold shadow transition text-xs">
+                    Next step ➔
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Audio & Simulation Engine scripts -->
+    <script>
+        // --- WEB AUDIO AUDIO SYNTHESIZER ---
+        let audioCtx = null;
+        let audioEnabled = true;
+
+        // Background Music Scheduler
+        let bgmInterval = null;
+        let bgmStep = 0;
+        
+        // Multi-Track Synthwave / Industrial Music Frequencies
+        const C2 = 65.41, Eb2 = 77.78, F2 = 87.31, G2 = 98.00;
+        const C4 = 261.63, Eb4 = 311.13, F4 = 349.23, G4 = 392.00, Bb4 = 466.16, C5 = 523.25;
+
+        // 32-step Bassline Progression (Chords changing)
+        const bassPattern = [
+            C2, C2, 0, C2, C2, Eb2, 0, C2,
+            C2, C2, 0, C2, G2, 0, Eb2, 0,
+            F2, F2, 0, F2, F2, G2, 0, F2,
+            Eb2, Eb2, 0, Eb2, G2, F2, Eb2, 0
+        ];
+
+        // 32-step Dynamic Lead Melody
+        const melodyPattern = [
+            C4, 0, Eb4, 0, G4, 0, 0, F4,
+            0, C4, 0, C5, Bb4, 0, G4, 0,
+            C4, 0, Eb4, 0, F4, 0, 0, G4,
+            0, C5, Bb4, 0, G4, F4, Eb4, 0
+        ];
+
+        function scheduleBGM() {
+            if (!audioEnabled || !audioCtx || audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime;
+            
+            const currentStep = bgmStep % 32;
+
+            // 1. Bassline Synthesizer
+            const bassNote = bassPattern[currentStep];
+            if (bassNote > 0) {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                let filter = audioCtx.createBiquadFilter();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(bassNote, now);
+                
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(200, now);
+                filter.frequency.exponentialRampToValueAtTime(800, now + 0.05); // Filter sweep effect
+                filter.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+
+                gain.gain.setValueAtTime(0.0, now);
+                gain.gain.linearRampToValueAtTime(0.03, now + 0.02); // Soft attack to prevent popping
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2); // Decay
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            // 2. Lead Melody Synthesizer
+            const melodyNote = melodyPattern[currentStep];
+            if (melodyNote > 0) {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                let filter = audioCtx.createBiquadFilter();
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(melodyNote, now);
+                
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1500, now);
+                filter.Q.value = 2.0;
+
+                gain.gain.setValueAtTime(0.0, now);
+                gain.gain.linearRampToValueAtTime(0.015, now + 0.02); 
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+            
+            // 3. Rhythm Section: Kick Drum
+            if (currentStep % 4 === 0) { // Kick on every beat
+                let kickOsc = audioCtx.createOscillator();
+                let kickGain = audioCtx.createGain();
+                
+                kickOsc.type = 'sine';
+                kickOsc.frequency.setValueAtTime(150, now);
+                kickOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.15); // Pitch drop characteristic of a kick
+                
+                kickGain.gain.setValueAtTime(0.0, now);
+                kickGain.gain.linearRampToValueAtTime(0.08, now + 0.01);
+                kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                
+                kickOsc.connect(kickGain);
+                kickGain.connect(audioCtx.destination);
+                
+                kickOsc.start(now);
+                kickOsc.stop(now + 0.15);
+            }
+
+            // 4. Rhythm Section: Hi-Hat
+            if (currentStep % 2 !== 0) { // Hat on off-beats
+                let hatOsc = audioCtx.createOscillator(); 
+                let hatGain = audioCtx.createGain();
+                let hatFilter = audioCtx.createBiquadFilter();
+                
+                hatOsc.type = 'square';
+                hatOsc.frequency.setValueAtTime(8000, now); // Very high pitch to simulate noise
+                
+                hatFilter.type = 'highpass';
+                hatFilter.frequency.setValueAtTime(6000, now);
+
+                hatGain.gain.setValueAtTime(0.0, now);
+                hatGain.gain.linearRampToValueAtTime(0.015, now + 0.01);
+                hatGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                
+                hatOsc.connect(hatFilter);
+                hatFilter.connect(hatGain);
+                hatGain.connect(audioCtx.destination);
+                
+                hatOsc.start(now);
+                hatOsc.stop(now + 0.05);
+            }
+
+            bgmStep++;
+        }
+
+        function toggleBGM(enable) {
+            if (enable && !bgmInterval) {
+                // Set interval to 150ms per step, creating a steady ~100 BPM groove
+                bgmInterval = setInterval(scheduleBGM, 150); 
+            } else if (!enable && bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioEnabled) {
+                        toggleBGM(true);
+                    }
+                } catch(e) {
+                    console.warn("Web Audio API not supported", e);
+                }
+            }
+        }
+
+        document.getElementById('toggleAudio').addEventListener('click', () => {
+            initAudio();
+            audioEnabled = !audioEnabled;
+            const icon = document.getElementById('toggleAudio').querySelector('i');
+            if (audioEnabled && audioCtx) {
+                icon.className = 'fa-solid fa-volume-high';
+                audioCtx.resume();
+                toggleBGM(true);
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark';
+                if (audioCtx) audioCtx.suspend();
+                toggleBGM(false);
+            }
+            playSound('click');
+        });
+
+        function playSound(type) {
+            initAudio(); // Triggers context + bgm start naturally on any first user interaction
+            if (!audioEnabled || !audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                if (type === 'click') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                } 
+                else if (type === 'conveyor') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(55, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                }
+                else if (type === 'piston') {
+                    let bufferSize = audioCtx.sampleRate * 0.25;
+                    let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    let data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                    let noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+                    
+                    let filter = audioCtx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(350, audioCtx.currentTime);
+                    
+                    let gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
+                    
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    noise.start();
+                }
+                else if (type === 'success') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.12); // E5
+                    osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.24); // G5
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.5);
+                }
+            } catch (e) {
+                console.warn("Audio Playback Wait");
+            }
+        }
+
+        // --- DOM CHURN OPTIMIZATION CACHE ---
+        const DOMCache = {};
+        
+        function setDOMText(id, text) {
+            if (DOMCache[id] !== text) {
+                const el = document.getElementById(id);
+                if (el) el.innerText = text;
+                DOMCache[id] = text;
+            }
+        }
+        
+        function setDOMClass(id, cls) {
+            if (DOMCache[id] !== cls) {
+                const el = document.getElementById(id);
+                if (el) el.className = cls;
+                DOMCache[id] = cls;
+            }
+        }
+
+        // --- GUIDED ONBOARDING SYSTEM ---
+        const tourSteps = [
+            { 
+                targetId: null, 
+                title: "Welcome to Factory Automation!", 
+                desc: "A PLC (Programmable Logic Controller) is the electronic 'brain' of a factory. It reads physical sensors and triggers physical actuators/motors. Let me show you around!"
+            },
+            { 
+                targetId: "factoryViewContainer", 
+                title: "CCTV Surveillance Grid", 
+                desc: "This is your main factory feed behind protective safety glass. Switch between CAM 1 to 4 to inspect the machine close up, track packages, or look at sorting chutes."
+            },
+            { 
+                targetId: "controlDeskContainer", 
+                title: "Desk Panel Controls", 
+                desc: "These are physical overrides. Click START to turn on the machine power, click STOP to turn it off, pull the E-STOP, or toggle manual sensor lines."
+            },
+            { 
+                targetId: "ladderWorkspaceContainer", 
+                title: "Ladder Logic Editor", 
+                desc: "This is where you wire the control program! Electrical current flows from the left rail to the right coil. Remember, edits are OFFLINE drafts until you click UPLOAD TO PLC. Drag and drop any contact card left or right to sort your series sequence!"
+            },
+            { 
+                targetId: "academyPanelContainer", 
+                title: "PLC Academy Guides", 
+                desc: "Follow current instructions carefully here to complete modular milestones. Let's tackle Lesson 1!"
+            }
+        ];
+
+        let currentTourStep = 0;
+
+        function startTour() {
+            currentTourStep = 0;
+            document.getElementById('tourOverlay').classList.remove('hidden');
+            showTourStep();
+        }
+
+        function endTour() {
+            document.getElementById('tourOverlay').classList.add('hidden');
+            setLesson(1);
+        }
+
+        function showTourStep() {
+            const step = tourSteps[currentTourStep];
+            document.getElementById('tourTitle').innerText = step.title;
+            document.getElementById('tourDesc').innerText = step.desc;
+            document.getElementById('tourProgress').innerText = `Step ${currentTourStep + 1} of ${tourSteps.length}`;
+            
+            const btn = document.getElementById('tourNextBtn');
+            btn.innerHTML = currentTourStep === tourSteps.length - 1 ? "Start Learning 🚀" : "Next Step ➔";
+
+            const highlighter = document.getElementById('tourHighlighter');
+            const dialog = document.getElementById('tourDialog');
+
+            if (step.targetId) {
+                const target = document.getElementById(step.targetId);
+                const rect = target.getBoundingClientRect();
+                
+                highlighter.style.opacity = '1';
+                highlighter.style.top = `${rect.top - 5}px`;
+                highlighter.style.left = `${rect.left - 5}px`;
+                highlighter.style.width = `${rect.width + 10}px`;
+                highlighter.style.height = `${rect.height + 10}px`;
+
+                dialog.style.top = '50%';
+                dialog.style.left = '50%';
+                dialog.style.transform = 'translate(-50%, -50%)';
+                
+                if (rect.left < window.innerWidth / 2) {
+                    dialog.style.left = `${rect.right + 40}px`;
+                    dialog.style.transform = 'translate(0, -50%)';
+                } else {
+                    dialog.style.left = `${rect.left - 460}px`;
+                    dialog.style.transform = 'translate(0, -50%)';
+                }
+
+            } else {
+                highlighter.style.opacity = '0';
+                dialog.style.top = '50%';
+                dialog.style.left = '50%';
+                dialog.style.transform = 'translate(-50%, -50%)';
+            }
+        }
+
+        function nextTourStep() {
+            playSound('click');
+            if (currentTourStep < tourSteps.length - 1) {
+                currentTourStep++;
+                showTourStep();
+            } else {
+                endTour();
+            }
+        }
+
+        // --- ORDER SYSTEM (Endless Mode Economy) ---
+        const OrderSystem = {
+            active: false,
+            targetColor: 'GREEN',
+            targetCount: 5,
+            currentCount: 0,
+            reward: 100,
+            requirePressed: false,
+            requireEngraved: false
+        };
+
+        function generateOrder() {
+            // If the user has unlocked other machinery, let's inject randomized multi-machinery tasks!
+            OrderSystem.targetColor = Math.random() > 0.5 ? 'GREEN' : 'RED';
+            OrderSystem.targetCount = Math.floor(Math.random() * 4) + 3; // 3 to 6
+            
+            OrderSystem.requirePressed = state.upgrades.pressUnlocked && Math.random() > 0.4;
+            OrderSystem.requireEngraved = state.upgrades.laserUnlocked && Math.random() > 0.4;
+            
+            // Calculate base multiplier payout
+            let multiplier = 30;
+            if (OrderSystem.requirePressed) multiplier += 25;
+            if (OrderSystem.requireEngraved) multiplier += 35;
+            
+            OrderSystem.reward = OrderSystem.targetCount * multiplier;
+            OrderSystem.currentCount = 0;
+            updateOrderUI();
+        }
+
+        function updateOrderUI() {
+            let modifiers = [];
+            if (OrderSystem.requirePressed) modifiers.push("Stamped");
+            if (OrderSystem.requireEngraved) modifiers.push("Laser-Engraved");
+            
+            const adj = modifiers.length > 0 ? modifiers.join(" & ") + " " : "";
+            const orderTitle = `Order: Deliver ${OrderSystem.targetCount} ${adj}${OrderSystem.targetColor} Boxes`;
+            const orderPrompt = `The factory needs <strong>${OrderSystem.targetCount} ${adj}${OrderSystem.targetColor}</strong> boxes correctly processed and delivered to the end of the main conveyor. Push incorrect boxes into the side waste bin!`;
+            const orderGoal = `Progress: ${OrderSystem.currentCount} / ${OrderSystem.targetCount} delivered.`;
+
+            // Update main dashboard panel
+            document.getElementById('lessonTitle').innerHTML = `<i class="fa-solid fa-clipboard-list text-yellow-400 mr-1.5"></i> ` + orderTitle;
+            document.getElementById('lessonPrompt').innerHTML = orderPrompt;
+            document.getElementById('lessonGoal').innerText = orderGoal;
+            document.getElementById('goalIcon').className = "fa-solid fa-box text-yellow-500 mr-2 animate-bounce";
+
+            // Update Walk Telemetry Mini HUD
+            const walkTitle = document.getElementById('walkActiveTask');
+            if (walkTitle) walkTitle.innerHTML = `<i class="fa-solid fa-clipboard-list text-yellow-400 mr-1"></i> ` + orderTitle;
+            
+            const progressContainer = document.getElementById('walkOrderProgressContainer');
+            const progressVal = document.getElementById('walkOrderProgress');
+            if (progressContainer && progressVal) {
+                progressContainer.classList.remove('hidden');
+                progressVal.innerText = `${OrderSystem.currentCount} / ${OrderSystem.targetCount}`;
+            }
+        }
+
+        // --- ACADEMY SYLLABUS LESSONS ---
+        const Academy = {
+            currentLesson: 1,
+            lessons: {
+                1: {
+                    title: "Lesson 1: Run the Conveyor Engine",
+                    goal: "Wire START contact (I:0/2) to Conveyor MOTOR (O:0/0). Click Upload, then press RUN.",
+                    instruction: "To run our automated line, we must route electrical power to the Conveyor Motor. Set the input contact to 'START Button' and the output coil to 'Conveyor MOTOR'. Remember to click UPLOAD TO PLC first, then press RUN on the desk!",
+                    validate: () => {
+                        const motorRung = activePLCLogic.find(r => r.coil.varId === 'O0');
+                        return motorRung && !motorRung.disabled && motorRung.contacts.some(c => c.varId === 'I2') && state.outputs.O0;
+                    }
+                },
+                2: {
+                    title: "Lesson 2: Parallel Sorter Automation (Multiple Rungs)",
+                    goal: "Click 'ADD NEW ELECTRICAL RUNWAY' to create Rung 2. Wire Photo-Eye to Sort Piston. Click Upload.",
+                    instruction: "Instead of changing the start button (which would stop your conveyor), let's add a NEW RUNG so both can run in parallel! Click 'ADD NEW ELECTRICAL RUNWAY' below to create a second rung. On this new rung, set the input contact to 'Photo-Eye Sensor' and the output coil to 'Sort PISTON'. Click Upload to save it!",
+                    validate: () => {
+                        const hasMotorRung = activePLCLogic.some(r => r.coil.varId === 'O0' && !r.disabled);
+                        const hasPistonRung = activePLCLogic.some(r => r.coil.varId === 'O1' && !r.disabled && r.contacts.some(c => c.varId === 'I0'));
+                        return activePLCLogic.length >= 2 && hasMotorRung && hasPistonRung;
+                    }
+                },
+                3: {
+                    title: "Lesson 3: Selective Target Sorting",
+                    goal: "On Rung 2, click '+' to add 'Color Sensor (HMI Match)' in series with Photo-Eye. Click Upload.",
+                    instruction: "Now let's filter color. On your second rung, click the series '+' button to append a second contact. Set this contact to 'Color Sensor (HMI Match)'. Click UPLOAD. Now, when both the Photo-Eye and HMI target color match are true, the Sort Piston fires!",
+                    validate: () => {
+                        const pistonRung = activePLCLogic.find(r => r.coil.varId === 'O1');
+                        if (!pistonRung || pistonRung.disabled) return false;
+                        const hasPE = pistonRung.contacts.some(c => c.varId === 'I0');
+                        const hasColor = pistonRung.contacts.some(c => c.varId === 'I1');
+                        return activePLCLogic.length >= 2 && hasPE && hasColor;
+                    }
+                }
+            }
+        };
+
+        function setLesson(num) {
+            Academy.currentLesson = num;
+            const info = Academy.lessons[num];
+            document.getElementById('lessonNum').innerText = num;
+            document.getElementById('lessonTitle').innerHTML = `<i class="fa-solid fa-graduation-cap text-cyan-400 mr-1.5"></i> ${info.title}`;
+            document.getElementById('lessonPrompt').innerText = info.instruction;
+            document.getElementById('lessonGoal').innerText = info.goal;
+            
+            const icon = document.getElementById('goalIcon');
+            icon.className = "fa-regular fa-circle text-yellow-500 animate-pulse mr-2";
+            document.getElementById('skipLessonBtn').style.display = 'block';
+
+            // Sync Walk Telemetry HUD
+            const walkTitle = document.getElementById('walkActiveTask');
+            if (walkTitle) walkTitle.innerHTML = `<i class="fa-solid fa-graduation-cap text-cyan-400 mr-1"></i> ` + info.title;
+            const progressContainer = document.getElementById('walkOrderProgressContainer');
+            if (progressContainer) progressContainer.classList.add('hidden');
+        }
+
+        function evaluateCurrentLesson() {
+            if(OrderSystem.active) return; // In endless mode, skip academy checks
+
+            const currentObj = Academy.lessons[Academy.currentLesson];
+            if (currentObj && currentObj.validate()) {
+                const icon = document.getElementById('goalIcon');
+                if (icon.classList.contains('fa-circle-check')) return;
+                
+                icon.className = "fa-solid fa-circle-check text-emerald-400 mr-2";
+                playSound('success');
+                
+                if (Academy.currentLesson < 3) {
+                    setTimeout(() => { setLesson(Academy.currentLesson + 1); }, 3200);
+                } else {
+                    document.getElementById('lessonPrompt').innerHTML = "<span class='text-emerald-400 font-bold'>🎉 ACADEMY COURSE GRADUATE!</span> Resetting workspace and preparing Endless Order Mode...";
+                    document.getElementById('lessonGoal').innerText = "All curricular challenges completed successfully!";
+                    document.getElementById('skipLessonBtn').style.display = 'none';
+
+                    // Graduation sequence
+                    setTimeout(() => {
+                        // Clear the active workspace for the player to rebuild
+                        ladderLogic = []; 
+                        activePLCLogic = [];
+                        markProgramModified();
+                        renderLadder();
+                        
+                        document.getElementById('academyTag').innerText = "FACTORY ORDER SYSTEM";
+                        document.getElementById('lessonNumWrap').style.display = 'none';
+                        
+                        OrderSystem.active = true;
+                        generateOrder();
+                    }, 4000);
+                }
+            }
+        }
+
+        function bypassLesson() {
+            playSound('click');
+            if (Academy.currentLesson < 3) setLesson(Academy.currentLesson + 1);
+        }
+
+        function resetAcademy() {
+            playSound('click');
+            ladderLogic = [
+                {
+                    id: 1,
+                    disabled: false,
+                    contacts: [{ type: 'NO', varId: 'I2' }],
+                    coil: { varId: 'O0' }
+                }
+            ];
+            activePLCLogic = JSON.parse(JSON.stringify(ladderLogic));
+            programModified = false;
+            document.getElementById('compilerAlert').classList.add('hidden');
+            renderLadder();
+            
+            OrderSystem.active = false;
+            document.getElementById('academyTag').innerText = "Academy Module Classroom";
+            document.getElementById('lessonNumWrap').style.display = 'inline-block';
+            setLesson(1);
+        }
+
+        // --- HARDWARE MEMORY REGISTERS & ECONOMY ---
+        const state = {
+            inputs: { I0: false, I1: false, I2: false, I3: false, I4: false, I5: false },
+            outputs: { O0: false, O1: false, O2: false, O3: false },
+            isEstop: false,
+            selectedPalette: 'NO',
+            stats: { cycles: 0 },
+            conveyorSpeed: 60,
+            targetSortColorGreen: true, // Green if true, Red if false
+            cash: 0,
+            upgrades: {
+                speedBoost: false,  // Unlocks up to 200 RPM
+                NCUnlocked: false,  // Unlocks Normally Closed Contacts
+                fastPiston: false,  // Speeds up piston retraction
+                particleSpark: false, // Successful sort spark particles
+                pressUnlocked: false, // Spawns Hydraulic Stamping Press
+                laserUnlocked: false  // Spawns Laser Engraver Marking Station
+            }
+        };
+
+        const inputsOptions = [
+            { id: 'I0', label: 'Photo-Eye Sensor' },
+            { id: 'I1', label: 'Color Sensor (HMI Match)' },
+            { id: 'I2', label: 'START Button' },
+            { id: 'I3', label: 'STOP Button' },
+            { id: 'I4', label: 'Press Sensor', requires: 'pressUnlocked' },
+            { id: 'I5', label: 'Laser Ready', requires: 'laserUnlocked' }
+        ];
+
+        const outputsOptions = [
+            { id: 'O0', label: 'Conveyor MOTOR' },
+            { id: 'O1', label: 'Sort PISTON' },
+            { id: 'O2', label: 'Stamping Press', requires: 'pressUnlocked' },
+            { id: 'O3', label: 'Laser Marker', requires: 'laserUnlocked' }
+        ];
+
+        let ladderLogic = [
+            {
+                id: 1,
+                disabled: false,
+                contacts: [{ type: 'NO', varId: 'I2' }],
+                coil: { varId: 'O0' }
+            }
+        ];
+
+        // Active running memory on the physical PLC
+        let activePLCLogic = JSON.parse(JSON.stringify(ladderLogic));
+        let programModified = false;
+
+        function selectElement(type) {
+            if (type === 'NC' && !state.upgrades.NCUnlocked) {
+                playSound('click');
+                switchRightTab('shop');
+                return;
+            }
+            state.selectedPalette = type;
+            setDOMClass('palette-NO', type === 'NO' 
+                ? "px-3 py-1.5 bg-cyan-900/50 border border-cyan-500 rounded text-xs text-cyan-300 font-bold transition" 
+                : "px-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 hover:text-white transition");
+            setDOMClass('palette-NC', type === 'NC' 
+                ? "px-3 py-1.5 bg-cyan-900/50 border border-cyan-500 rounded text-xs text-cyan-300 font-bold transition flex items-center gap-1" 
+                : "px-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 hover:text-white transition flex items-center gap-1");
+            playSound('click');
+        }
+
+        function getLabel(type, varId) {
+            if (type === 'coil') {
+                const opt = outputsOptions.find(o => o.id === varId);
+                return opt?.label || 'Unknown Output';
+            } else {
+                const opt = inputsOptions.find(i => i.id === varId);
+                return opt?.label || 'Unknown Input';
+            }
+        }
+
+        function markProgramModified() {
+            programModified = true;
+            document.getElementById('compilerAlert').classList.remove('hidden');
+        }
+
+        // Tab Selector Helper
+        function switchRightTab(tab) {
+            playSound('click');
+            const ladderBtn = document.getElementById('tabLadderBtn');
+            const shopBtn = document.getElementById('tabShopBtn');
+            const ladderWorkspace = document.getElementById('ladderWorkspaceContainer');
+            const shopWorkspace = document.getElementById('shopWorkspaceContainer');
+
+            if (tab === 'ladder') {
+                ladderBtn.className = "px-3 py-1.5 rounded font-bold bg-slate-900 border border-slate-800 text-cyan-400 flex items-center gap-1";
+                shopBtn.className = "px-3 py-1.5 rounded font-bold bg-slate-950 border border-transparent text-slate-400 hover:text-white flex items-center gap-1 relative";
+                ladderWorkspace.classList.remove('hidden');
+                shopWorkspace.classList.add('hidden');
+            } else {
+                ladderBtn.className = "px-3 py-1.5 rounded font-bold bg-slate-950 border border-transparent text-slate-400 hover:text-white flex items-center gap-1";
+                shopBtn.className = "px-3 py-1.5 rounded font-bold bg-slate-900 border border-slate-800 text-yellow-400 flex items-center gap-1 relative";
+                ladderWorkspace.classList.add('hidden');
+                shopWorkspace.classList.remove('hidden');
+                document.getElementById('shopAlertBadge').classList.add('hidden');
+            }
+        }
+
+        // Upgrade Shop Purchase Engine
+        function buyUpgrade(upgradeKey, cost) {
+            if (state.cash >= cost) {
+                state.cash -= cost;
+                state.upgrades[upgradeKey] = true;
+                playSound('success');
+                
+                // Sync Cash Displays
+                setDOMText('walletValue', state.cash);
+                setDOMText('walkWalletValue', state.cash);
+                
+                // Customize potentiometer limits upon Speed Booster purchase
+                if (upgradeKey === 'speedBoost') {
+                    const knob = document.getElementById('speedKnob');
+                    knob.max = 200;
+                }
+
+                if (upgradeKey === 'NCUnlocked') {
+                    const lockBadge = document.getElementById('ncPaletteLock');
+                    if (lockBadge) lockBadge.remove();
+                }
+
+                if (upgradeKey === 'pressUnlocked') {
+                    // Spawn hydraulic press assembly in ThreeJS
+                    build3DPress();
+                    setDOMClass('diagI4Row', 'flex justify-between items-center text-slate-300');
+                    setDOMClass('diagO2Row', 'flex justify-between items-center text-slate-300');
+                }
+
+                if (upgradeKey === 'laserUnlocked') {
+                    // Spawn laser machine in ThreeJS
+                    build3DLaser();
+                    setDOMClass('diagI5Row', 'flex justify-between items-center text-slate-300');
+                    setDOMClass('diagO3Row', 'flex justify-between items-center text-slate-300');
+                }
+
+                // Render current balance state on buttons
+                updateShopButtons();
+                renderLadder();
+            } else {
+                playSound('click');
+            }
+        }
+
+        function updateShopButtons() {
+            const upgradesList = [
+                { key: 'speedBoost', btnId: 'buySpeedBtn', cost: 100 },
+                { key: 'NCUnlocked', btnId: 'buyNCBtn', cost: 150 },
+                { key: 'fastPiston', btnId: 'buyPistonBtn', cost: 200 },
+                { key: 'particleSpark', btnId: 'buySparksBtn', cost: 50 },
+                { key: 'pressUnlocked', btnId: 'buyPressBtn', cost: 300 },
+                { key: 'laserUnlocked', btnId: 'buyLaserBtn', cost: 500 }
+            ];
+
+            upgradesList.forEach(item => {
+                const button = document.getElementById(item.btnId);
+                if (button) {
+                    if (state.upgrades[item.key]) {
+                        button.innerText = "UNLOCKED";
+                        button.className = "px-3 py-1.5 bg-slate-800 text-slate-500 font-bold text-xs rounded cursor-not-allowed";
+                        button.disabled = true;
+                    } else if (state.cash >= item.cost) {
+                        button.className = "px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded transition-colors whitespace-nowrap cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.5)]";
+                    } else {
+                        button.className = "px-3 py-1.5 bg-yellow-950/40 text-yellow-600 font-bold text-xs rounded transition-colors whitespace-nowrap border border-yellow-900/30 cursor-not-allowed";
+                    }
+                }
+            });
+        }
+
+        // --- GLOBAL RUNG MANAGEMENT CONTROLS ---
+        function moveRungUp(idx) {
+            if (idx > 0) {
+                playSound('click');
+                const temp = ladderLogic[idx];
+                ladderLogic[idx] = ladderLogic[idx - 1];
+                ladderLogic[idx - 1] = temp;
+                markProgramModified();
+                renderLadder();
+            }
+        }
+
+        function moveRungDown(idx) {
+            if (idx < ladderLogic.length - 1) {
+                playSound('click');
+                const temp = ladderLogic[idx];
+                ladderLogic[idx] = ladderLogic[idx + 1];
+                ladderLogic[idx + 1] = temp;
+                markProgramModified();
+                renderLadder();
+            }
+        }
+
+        function deleteRung(idx) {
+            playSound('click'); 
+            ladderLogic.splice(idx, 1); 
+            markProgramModified(); 
+            renderLadder(); 
+        }
+
+        function toggleRung(idx) {
+            playSound('click');
+            // Flip the disabled state for the draft rung
+            ladderLogic[idx].disabled = !ladderLogic[idx].disabled;
+            
+            // Mark as offline/draft so user MUST upload to see changes take effect
+            markProgramModified();
+            renderLadder();
+        }
+
+        // Drag and Drop State Holders
+        let dragSrcRungIdx = null;
+        let dragSrcContactIdx = null;
+
+        function renderLadder() {
+            const container = document.getElementById('ladderContainer');
+            container.innerHTML = '';
+
+            ladderLogic.forEach((rung, rIdx) => {
+                const rungDiv = document.createElement('div');
+                rungDiv.className = "flex items-center space-x-2 w-full p-3 bg-slate-900 border border-slate-800 rounded-lg shadow-inner relative";
+
+                // Power Rail Left (Static gray during editor changes; glow handles live frame updates)
+                const leftRail = document.createElement('div');
+                leftRail.className = `left-rail-element w-1.5 h-16 rounded-full transition-all bg-slate-700`;
+                rungDiv.appendChild(leftRail);
+
+                // Contacts Zone
+                const contactsDiv = document.createElement('div');
+                contactsDiv.className = "flex-1 flex items-center space-x-2 pl-4";
+
+                rung.contacts.forEach((contact, cIdx) => {
+                    const cell = document.createElement('div');
+                    cell.className = `contact-element flex flex-col items-center justify-center p-3 border-2 rounded-lg cursor-grab active:cursor-grabbing transition-all border-slate-700 bg-slate-800 text-slate-400`;
+                    cell.style.minWidth = "140px";
+                    cell.setAttribute('draggable', 'true');
+                    
+                    // Show lock indicator explicitly if variable requires unowned machine
+                    const opt = inputsOptions.find(i => i.id === contact.varId);
+                    const isLocked = opt && opt.requires && !state.upgrades[opt.requires];
+                    const labelText = isLocked ? `[🔒 Locked]` : getLabel('input', contact.varId);
+
+                    cell.innerHTML = `
+                        <div class="flex items-center justify-between w-full text-[10px] text-slate-500 mb-1 pointer-events-none">
+                            <i class="fa-solid fa-grip-vertical"></i>
+                            <span class="font-bold text-cyan-500">${rIdx + 1}-${cIdx + 1}</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); toggleContactType(${rIdx}, ${cIdx});" class="px-1.5 py-0.5 rounded text-[9px] font-bold ${contact.type === 'NO' ? 'bg-cyan-950/60 text-cyan-400 border border-cyan-800/40' : 'bg-rose-950/60 text-rose-400 border border-rose-800/40'} hover:scale-105 transition-transform">
+                            ${contact.type === 'NO' ? 'NO -[ ]-' : 'NC -[/]-'}
+                        </button>
+                        <span class="text-[11px] font-bold mt-1.5 text-center pointer-events-none ${isLocked ? 'text-rose-400' : ''}">${labelText}</span>
+                        <span class="text-[9px] text-cyan-400 mt-2 opacity-80 pointer-events-none"><i class="fa-solid fa-arrows-rotate"></i> Change Var</span>
+                    `;
+                    
+                    // Variable Change Click Handler - Never redirects to shop!
+                    cell.addEventListener('click', (e) => {
+                        playSound('click'); 
+                        cycleInput(rIdx, cIdx); 
+                    });
+
+                    // HTML5 Drag and Drop Handlers
+                    cell.addEventListener('dragstart', (e) => {
+                        dragSrcRungIdx = rIdx;
+                        dragSrcContactIdx = cIdx;
+                        cell.classList.add('dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+
+                    cell.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                    });
+
+                    cell.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (dragSrcRungIdx !== null && dragSrcContactIdx !== null) {
+                            // Target must be on the same rung to swap sequence order
+                            if (dragSrcRungIdx === rIdx) {
+                                const contactsArray = rung.contacts;
+                                // Swap contact values
+                                const temp = contactsArray[dragSrcContactIdx];
+                                contactsArray[dragSrcContactIdx] = contactsArray[cIdx];
+                                contactsArray[cIdx] = temp;
+                                
+                                markProgramModified();
+                                renderLadder();
+                            }
+                        }
+                    });
+
+                    cell.addEventListener('dragend', () => {
+                        cell.classList.remove('dragging');
+                        dragSrcRungIdx = null;
+                        dragSrcContactIdx = null;
+                    });
+
+                    contactsDiv.appendChild(cell);
+
+                    if (cIdx < rung.contacts.length - 1) {
+                        const wire = document.createElement('div');
+                        wire.className = `wire-element h-1 w-6 rounded-full transition-colors bg-slate-700`;
+                        contactsDiv.appendChild(wire);
+                    }
+                });
+
+                // Add series contact
+                const addBtn = document.createElement('button');
+                addBtn.className = "w-8 h-8 rounded-full border-2 border-dashed border-slate-600 text-slate-500 hover:text-cyan-400 hover:border-cyan-400 flex items-center justify-center transition";
+                addBtn.innerHTML = "<i class='fa-solid fa-plus'></i>";
+                addBtn.onclick = () => {
+                    playSound('click');
+                    rung.contacts.push({ type: state.selectedPalette, varId: 'I0' });
+                    markProgramModified();
+                    renderLadder();
+                };
+                contactsDiv.appendChild(addBtn);
+
+                rungDiv.appendChild(contactsDiv);
+
+                // Central connective wire
+                const centerWire = document.createElement('div');
+                centerWire.className = `center-wire-element flex-1 h-1 min-w-[30px] rounded-full transition-colors bg-slate-700`;
+                rungDiv.appendChild(centerWire);
+
+                // Output Coil block
+                const coilDiv = document.createElement('div');
+                coilDiv.className = `coil-element p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 mr-4 flex flex-col items-center border-slate-700 bg-slate-800 text-slate-400`;
+                coilDiv.style.minWidth = "130px";
+                
+                const cOpt = outputsOptions.find(o => o.id === rung.coil.varId);
+                const cLocked = cOpt && cOpt.requires && !state.upgrades[cOpt.requires];
+                const cLabelText = cLocked ? `[🔒 Locked]` : getLabel('coil', rung.coil.varId);
+
+                coilDiv.innerHTML = `
+                    <span class="text-xs font-bold text-slate-500">-( )-</span>
+                    <span class="text-[11px] font-bold mt-1 text-center ${cLocked ? 'text-rose-400' : ''}">${cLabelText}</span>
+                    <span class="text-[9px] text-cyan-400 mt-2 opacity-80"><i class="fa-solid fa-arrows-rotate"></i> Change Var</span>
+                `;
+                coilDiv.onclick = () => { playSound('click'); cycleCoil(rIdx); };
+                rungDiv.appendChild(coilDiv);
+
+                // Right Power Rail
+                const rightRail = document.createElement('div');
+                rightRail.className = "w-1.5 h-16 bg-slate-700 rounded-full";
+                rungDiv.appendChild(rightRail);
+
+                // Re-Order Controls and Delete Button Group
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = "flex flex-col items-center justify-center ml-2 space-y-1 text-slate-600";
+                controlsDiv.innerHTML = `
+                    <button onclick="moveRungUp(${rIdx})" class="hover:text-cyan-400 transition-colors" title="Move Rung Up"><i class='fa-solid fa-chevron-up text-xs'></i></button>
+                    <button onclick="deleteRung(${rIdx})" class="hover:text-rose-500 transition-colors" title="Delete Rung"><i class='fa-solid fa-trash-can text-xs'></i></button>
+                    <button onclick="moveRungDown(${rIdx})" class="hover:text-cyan-400 transition-colors" title="Move Rung Down"><i class='fa-solid fa-chevron-down text-xs'></i></button>
+                `;
+                rungDiv.appendChild(controlsDiv);
+
+                // Real-time Toggle Enabled/Disabled switch button
+                const isOff = rung.disabled;
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = `rung-toggle-btn ml-3 px-2 py-1 rounded text-[10px] font-bold transition-all border whitespace-nowrap w-12 text-center shadow-sm active:scale-95 cursor-pointer ${isOff ? 'bg-rose-950/40 text-rose-400 border-rose-800/50 hover:bg-rose-900/60' : 'bg-emerald-950/40 text-emerald-400 border-emerald-500/50 glow-green hover:bg-emerald-900/60'}`;
+                toggleBtn.innerText = isOff ? "OFF" : "ON";
+                toggleBtn.title = "Toggle Rung Execution State";
+                toggleBtn.onclick = () => toggleRung(rIdx);
+                rungDiv.appendChild(toggleBtn);
+
+                container.appendChild(rungDiv);
+            });
+        }
+
+        // Real-time animation visual synchronization for compiled live rungs
+        function updateLadderGlows() {
+            const isPowerOn = !state.isEstop;
+            const container = document.getElementById('ladderContainer');
+            if (!container) return;
+            const rungDivs = container.children;
+            
+            // Only update active current flow on ladder elements if program matches compiled buffer
+            if (programModified) {
+                // Dim down workspace to reflect offline state
+                ladderLogic.forEach((rung, rIdx) => {
+                    const rungDiv = rungDivs[rIdx];
+                    if (!rungDiv) return;
+
+                    const leftRail = rungDiv.querySelector('.left-rail-element');
+                    if (leftRail) leftRail.className = "left-rail-element w-1.5 h-16 rounded-full transition-all bg-slate-800";
+                    
+                    const contacts = rungDiv.querySelectorAll('.contact-element');
+                    contacts.forEach(contactEl => {
+                        contactEl.className = "contact-element flex flex-col items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 border-slate-800 bg-slate-900 text-slate-600";
+                    });
+
+                    const wires = rungDiv.querySelectorAll('.wire-element');
+                    wires.forEach(wire => {
+                        wire.className = "wire-element h-1 w-6 rounded-full transition-colors bg-slate-800";
+                    });
+
+                    const centerWire = rungDiv.querySelector('.center-wire-element');
+                    if (centerWire) centerWire.className = "center-wire-element flex-1 h-1 min-w-[30px] rounded-full transition-colors bg-slate-800";
+                    
+                    const coilEl = rungDiv.querySelector('.coil-element');
+                    if (coilEl) {
+                        coilEl.className = "coil-element p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 mr-4 flex flex-col items-center border-slate-800 bg-slate-900 text-slate-600";
+                    }
+                });
+                return;
+            }
+
+            // Program matches PLC; scan active compiled memory
+            activePLCLogic.forEach((rung, rIdx) => {
+                const rungDiv = rungDivs[rIdx];
+                if (!rungDiv) return;
+
+                const rungIsOn = !rung.disabled;
+                const leftRail = rungDiv.querySelector('.left-rail-element');
+                if (leftRail) {
+                    leftRail.className = `left-rail-element w-1.5 h-16 rounded-full transition-all ${isPowerOn && rungIsOn ? 'bg-cyan-500 glow-cyan' : 'bg-slate-700'}`;
+                }
+
+                let pathActive = isPowerOn && rungIsOn;
+
+                const contacts = rungDiv.querySelectorAll('.contact-element');
+                rung.contacts.forEach((contact, cIdx) => {
+                    const el = contacts[cIdx];
+                    if (!el) return;
+
+                    const hVal = state.inputs[contact.varId];
+                    const isActive = contact.type === 'NO' ? hVal : !hVal;
+                    pathActive = pathActive && isActive;
+
+                    if (isActive && rungIsOn) {
+                        el.className = "contact-element flex flex-col items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 border-emerald-500 bg-emerald-950/40 glow-green text-emerald-400";
+                    } else {
+                        el.className = "contact-element flex flex-col items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 border-slate-700 bg-slate-800 text-slate-400 opacity-50";
+                    }
+                });
+
+                let wireActive = isPowerOn && rungIsOn;
+                const wires = rungDiv.querySelectorAll('.wire-element');
+                rung.contacts.forEach((contact, cIdx) => {
+                    const hVal = state.inputs[contact.varId];
+                    const isActive = contact.type === 'NO' ? hVal : !hVal;
+                    wireActive = wireActive && isActive;
+
+                    const wireEl = wires[cIdx];
+                    if (wireEl) {
+                        wireEl.className = `wire-element h-1 w-6 rounded-full transition-colors ${wireActive && rungIsOn ? 'bg-emerald-500 glow-green' : 'bg-slate-700'}`;
+                    }
+                });
+
+                const centerWire = rungDiv.querySelector('.center-wire-element');
+                if (centerWire) {
+                    centerWire.className = `center-wire-element flex-1 h-1 min-w-[30px] rounded-full transition-colors ${pathActive && rungIsOn ? 'bg-emerald-500 glow-green' : 'bg-slate-700'}`;
+                }
+
+                const coilEl = rungDiv.querySelector('.coil-element');
+                if (coilEl) {
+                    if (pathActive && !state.isEstop && rungIsOn) {
+                        coilEl.className = "coil-element p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 mr-4 flex flex-col items-center border-cyan-500 bg-cyan-950/40 glow-cyan text-cyan-400";
+                    } else {
+                        coilEl.className = "coil-element p-3 border-2 rounded-lg cursor-pointer transition-all hover:scale-105 mr-4 flex flex-col items-center border-slate-700 bg-slate-800 text-slate-400 opacity-50";
+                    }
+                }
+            });
+        }
+
+        function cycleInput(rIdx, cIdx) {
+            const contact = ladderLogic[rIdx].contacts[cIdx];
+            let idx = inputsOptions.findIndex(i => i.id === contact.varId);
+            
+            // Increment logic allowing bypass of locked elements without freezing loop
+            let nextIdx = (idx + 1) % inputsOptions.length;
+            let infiniteGuard = 0;
+            while (inputsOptions[nextIdx].requires && !state.upgrades[inputsOptions[nextIdx].requires]) {
+                nextIdx = (nextIdx + 1) % inputsOptions.length;
+                infiniteGuard++;
+                if (infiniteGuard > inputsOptions.length) break; // emergency trap exit
+            }
+
+            contact.varId = inputsOptions[nextIdx].id;
+            markProgramModified();
+            renderLadder();
+        }
+
+        function toggleContactType(rIdx, cIdx) {
+            const contact = ladderLogic[rIdx].contacts[cIdx];
+            const nextType = contact.type === 'NO' ? 'NC' : 'NO';
+            
+            if (nextType === 'NC' && !state.upgrades.NCUnlocked) {
+                addLog("[PLC LICENSE MANAGER] Normally Closed (NC) mode is locked. Unlock it in the Shop!", true);
+                switchRightTab('shop');
+                return;
+            }
+            
+            contact.type = nextType;
+            markProgramModified();
+            renderLadder();
+        }
+
+        function cycleCoil(rIdx) {
+            const coil = ladderLogic[rIdx].coil;
+            let idx = outputsOptions.findIndex(o => o.id === coil.varId);
+            
+            // Increment logic allowing bypass of locked elements without freezing loop
+            let nextIdx = (idx + 1) % outputsOptions.length;
+            let infiniteGuard = 0;
+            while (outputsOptions[nextIdx].requires && !state.upgrades[outputsOptions[nextIdx].requires]) {
+                nextIdx = (nextIdx + 1) % outputsOptions.length;
+                infiniteGuard++;
+                if (infiniteGuard > outputsOptions.length) break; // emergency trap exit
+            }
+
+            coil.varId = outputsOptions[nextIdx].id;
+            markProgramModified();
+            renderLadder();
+        }
+
+        function addRung() {
+            playSound('click');
+            ladderLogic.push({
+                id: Date.now(),
+                disabled: false,
+                contacts: [{ type: 'NO', varId: 'I0' }],
+                coil: { varId: 'O1' }
+            });
+            markProgramModified();
+            renderLadder();
+        }
+
+        function scanPLC() {
+            // Re-evaluate register memory
+            state.outputs.O0 = false;
+            state.outputs.O1 = false;
+            state.outputs.O2 = false;
+            state.outputs.O3 = false;
+
+            if (state.isEstop) {
+                // E-STOP active, keep conveyor down
+            } else {
+                activePLCLogic.forEach(rung => {
+                    // Skip iteration early if the player toggled this specific rung off
+                    if (rung.disabled) return; 
+
+                    let pathActive = true;
+                    rung.contacts.forEach(c => {
+                        const hVal = state.inputs[c.varId];
+                        const isActive = c.type === 'NO' ? hVal : !hVal;
+                        pathActive = pathActive && isActive;
+                    });
+                    
+                    if (pathActive) {
+                        state.outputs[rung.coil.varId] = true;
+                    }
+                });
+            }
+
+            // Sync visual diagnostic indicators (Optimized via DOM Cache)
+            setDOMClass('io-I2', `w-2.5 h-2.5 rounded-full border transition-all ${state.inputs.I2 ? 'bg-emerald-500 border-emerald-400 glow-green' : 'bg-slate-800 border-slate-700'}`);
+            setDOMClass('io-I0', `w-2.5 h-2.5 rounded-full border transition-all ${state.inputs.I0 ? 'bg-emerald-500 border-emerald-400 glow-green' : 'bg-slate-800 border-slate-700'}`);
+            setDOMClass('io-I1', `w-2.5 h-2.5 rounded-full border transition-all ${state.inputs.I1 ? 'bg-emerald-500 border-emerald-400 glow-green' : 'bg-slate-800 border-slate-700'}`);
+            setDOMClass('io-O0', `w-2.5 h-2.5 rounded-full border transition-all ${state.outputs.O0 ? 'bg-cyan-500 border-cyan-400 glow-cyan' : 'bg-slate-800 border-slate-700'}`);
+            setDOMClass('io-O1', `w-2.5 h-2.5 rounded-full border transition-all ${state.outputs.O1 ? 'bg-cyan-500 border-cyan-400 glow-cyan' : 'bg-slate-800 border-slate-700'}`);
+
+            // Advanced machines diagnostic lights
+            if (state.upgrades.pressUnlocked) {
+                setDOMClass('io-I4', `w-2.5 h-2.5 rounded-full border transition-all ${state.inputs.I4 ? 'bg-emerald-500 border-emerald-400 glow-green' : 'bg-slate-800 border-slate-700'}`);
+                setDOMClass('io-O2', `w-2.5 h-2.5 rounded-full border transition-all ${state.outputs.O2 ? 'bg-cyan-500 border-cyan-400 glow-cyan' : 'bg-slate-800 border-slate-700'}`);
+            }
+            if (state.upgrades.laserUnlocked) {
+                setDOMClass('io-I5', `w-2.5 h-2.5 rounded-full border transition-all ${state.inputs.I5 ? 'bg-emerald-500 border-emerald-400 glow-green' : 'bg-slate-800 border-slate-700'}`);
+                setDOMClass('io-O3', `w-2.5 h-2.5 rounded-full border transition-all ${state.outputs.O3 ? 'bg-cyan-500 border-cyan-400 glow-cyan' : 'bg-slate-800 border-slate-700'}`);
+            }
+
+            const banner = document.getElementById('alarmBanner');
+            if (state.isEstop) {
+                banner.classList.remove('hidden');
+                document.getElementById('sysModeBadge').innerText = "ESTOP LOCK";
+                document.getElementById('sysModeBadge').className = "px-2 py-0.5 rounded text-[10px] bg-red-500/10 border border-red-500/30 text-red-400 font-bold animate-pulse";
+            } else if (state.outputs.O0) {
+                banner.classList.add('hidden');
+                document.getElementById('sysModeBadge').innerText = "RUNNING";
+                document.getElementById('sysModeBadge').className = "px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold";
+            } else {
+                banner.classList.add('hidden');
+                document.getElementById('sysModeBadge').innerText = "IDLE";
+                document.getElementById('sysModeBadge').className = "px-2 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold";
+            }
+
+            evaluateCurrentLesson();
+        }
+
+        function addLog(msg, isWarn = false) {
+            console.log(msg);
+        }
+
+        document.getElementById('btnCompile').addEventListener('click', () => {
+            playSound('click');
+            const btn = document.getElementById('btnCompile');
+            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> COMPILING...";
+            setTimeout(() => {
+                // Compile Draft Workspace into PLC Running Active Buffer
+                activePLCLogic = JSON.parse(JSON.stringify(ladderLogic));
+                programModified = false;
+                document.getElementById('compilerAlert').classList.add('hidden');
+
+                btn.innerHTML = "<i class='fa-solid fa-check'></i> UPLOADING DONE";
+                btn.classList.add('bg-cyan-600', 'text-white');
+                btn.classList.remove('bg-emerald-600', 'text-slate-950');
+
+                // Re-evaluate the academy rules since code is now uploaded and structurally checked
+                evaluateCurrentLesson();
+
+                setTimeout(() => {
+                    btn.innerHTML = "<i class='fa-solid fa-cloud-arrow-up'></i> UPLOAD TO PLC";
+                    btn.classList.remove('bg-cyan-600', 'text-white');
+                    btn.classList.add('bg-emerald-600', 'text-slate-950');
+                }, 2000);
+            }, 800);
+        });
+
+        // --- HARDWARE BINDING LISTENERS ---
+        document.getElementById('hmiStart').addEventListener('click', () => { 
+            state.inputs.I2 = true; 
+            state.inputs.I3 = false; // reset stop state
+            playSound('click');
+            renderLadder(); 
+        });
+        
+        document.getElementById('hmiStop').addEventListener('click', () => { 
+            state.inputs.I2 = false; 
+            state.inputs.I3 = true; 
+            playSound('click');
+            setTimeout(() => {
+                state.inputs.I3 = false;
+                renderLadder();
+            }, 300);
+            renderLadder(); 
+        });
+
+        document.getElementById('hmiEstop').addEventListener('click', () => {
+            state.isEstop = !state.isEstop;
+            const btn = document.getElementById('hmiEstop');
+            playSound('click');
+            if(state.isEstop) {
+                btn.className = "w-14 h-14 rounded bg-red-900 border-4 border-yellow-500 text-red-200 text-[10px] font-extrabold shadow-lg animate-pulse";
+            } else {
+                btn.className = "w-14 h-14 rounded bg-red-600 hover:bg-red-500 border-4 border-yellow-500 text-white text-[10px] font-extrabold shadow-lg active:scale-95 transition-all";
+            }
+            renderLadder();
+        });
+
+        function setupToggle(id, key, knobId) {
+            document.getElementById(id).addEventListener('click', () => {
+                state.inputs[key] = !state.inputs[key];
+                const knob = document.getElementById(knobId);
+                const bg = document.getElementById(id);
+                playSound('click');
+                if (state.inputs[key]) {
+                    knob.style.transform = 'translateX(24px)';
+                    bg.classList.replace('bg-slate-700', 'bg-emerald-500');
+                } else {
+                    knob.style.transform = 'translateX(0)';
+                    bg.classList.replace('bg-emerald-500', 'bg-slate-700');
+                }
+                renderLadder();
+            });
+        }
+        setupToggle('toggleSensor0', 'I0', 'toggleSensorKnob0');
+
+        // Color selector override logic: RED vs GREEN box filter setting on HMI
+        document.getElementById('toggleSensor1').addEventListener('click', () => {
+            state.targetSortColorGreen = !state.targetSortColorGreen;
+            const knob = document.getElementById('toggleSensorKnob1');
+            const bg = document.getElementById('toggleSensor1');
+            playSound('click');
+            if (state.targetSortColorGreen) {
+                knob.style.transform = 'translateX(24px)';
+                bg.className = "w-12 h-6 bg-emerald-600 rounded-full p-1 transition-all relative";
+            } else {
+                knob.style.transform = 'translateX(0)';
+                bg.className = "w-12 h-6 bg-rose-600 rounded-full p-1 transition-all relative";
+            }
+        });
+
+        document.getElementById('speedKnob').addEventListener('input', (e) => {
+            state.conveyorSpeed = parseInt(e.target.value);
+            document.getElementById('speedDisplay').innerText = `${state.conveyorSpeed} RPM`;
+        });
+
+        // --- THREE.JS 3D SURVEILLANCE CAM SYSTEM & FIRST PERSON WALK MODE ---
+        let scene, camera, renderer, controls;
+        let piston, pressHead, laserStation, laserBeamMesh, boxes = [];
+        let lightPoleGreen, lightPoleRed, sensorBeam;
+        let dustParticles;
+
+        // Interactive free roam walk parameters
+        let isWalkMode = false;
+        let keysPressed = {};
+        const walkSpeed = 0.08;
+        let mousePitch = 0, mouseYaw = -Math.PI / 2;
+
+        const cameraPositions = {
+            1: { pos: new THREE.Vector3(0, 1.8, 5.8), target: new THREE.Vector3(0, 1.3, -2) },    // CAM-01 (Operator Desk POV)
+            2: { pos: new THREE.Vector3(-4.8, 1.8, -1.5), target: new THREE.Vector3(4.5, 1.0, -1.5) }, // CAM-02 (Conveyor Front Tracking)
+            3: { pos: new THREE.Vector3(-1.0, 3.8, -0.6), target: new THREE.Vector3(-1.0, 0.9, -1.8) },  // CAM-03 (Overhead Sorter)
+            4: { pos: new THREE.Vector3(3.5, 2.2, 0), target: new THREE.Vector3(1.5, 0.4, 0.8) }     // CAM-04 (Storage Discharge Chute)
+        };
+
+        // Track keydown/keyup events for smooth walking (registered globally on document so it works anywhere)
+        document.addEventListener('keydown', (e) => {
+            if (isWalkMode) {
+                keysPressed[e.key.toLowerCase()] = true;
+                if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+                    e.preventDefault();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (isWalkMode) {
+                keysPressed[e.key.toLowerCase()] = false;
+            }
+        });
+
+        // Solve standard WebGL blur key stuck issues
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                keysPressed = {}; // Flush buffer on tab switch!
+            }
+        });
+
+        // Track mouse delta movements when dragging inside WebGL viewport in CAM-05 Walk Mode
+        let isDraggingMouse = false;
+
+        function init3D() {
+            const container = document.getElementById('webglContainer');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0c10);
+            scene.fog = new THREE.FogExp2(0x0a0c10, 0.04);
+
+            camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 50);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Bind direct Drag rotation listeners to the renderer canvas element
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (isWalkMode) {
+                    isDraggingMouse = true;
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDraggingMouse = false;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (isWalkMode && isDraggingMouse) {
+                    const sensitivity = 0.003;
+                    mouseYaw -= e.movementX * sensitivity;
+                    mousePitch -= e.movementY * sensitivity;
+
+                    // Lock vertical glance pitch so player doesn't loop upside down
+                    mousePitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, mousePitch));
+                }
+            });
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.enabled = false; // Closed feedback locked inside camera viewpoints
+
+            // Neutral warm white industrial lighting (To display vibrant Red and Green boxes perfectly)
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4)); 
+            
+            const mainDirLight = new THREE.DirectionalLight(0xffffff, 1.4); 
+            mainDirLight.position.set(5, 12, 5);
+            mainDirLight.castShadow = true;
+            scene.add(mainDirLight);
+
+            // Adding Cyber-Industrial Girders / Steel Columns on the back wall
+            const girderGeo = new THREE.BoxGeometry(0.2, 10, 0.2);
+            const girderMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+            for (let x = -8; x <= 8; x += 4) {
+                const girder = new THREE.Mesh(girderGeo, girderMat);
+                girder.position.set(x, 5, -5);
+                scene.add(girder);
+            }
+
+            // Adding Industrial Overhead Pipes on the wall
+            const pipeGeo = new THREE.CylinderGeometry(0.1, 0.1, 16);
+            const pipeMat = new THREE.MeshStandardMaterial({ color: 0x090d16, metalness: 0.9, roughness: 0.3 });
+            const wallPipe = new THREE.Mesh(pipeGeo, pipeMat);
+            wallPipe.rotation.z = Math.PI / 2;
+            wallPipe.position.set(0, 4, -4.8);
+            scene.add(wallPipe);
+
+            // Room Walls for Walking Bounds (Confining the player inside the operator booth)
+            const roomWallMat = new THREE.MeshStandardMaterial({ color: 0x111622, roughness: 1.0 });
+            
+            // Back Wall with styled cyber door decal
+            const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 0.5), roomWallMat);
+            backWall.position.set(0, 3, 9);
+            scene.add(backWall);
+
+            const opDoorGeo = new THREE.BoxGeometry(2, 4, 0.1);
+            const opDoorMat = new THREE.MeshStandardMaterial({ color: 0x1a2235, metalness: 0.5, roughness: 0.3 });
+            const opDoor = new THREE.Mesh(opDoorGeo, opDoorMat);
+            opDoor.position.set(0, 2, 8.7);
+            scene.add(opDoor);
+
+            // Side Walls
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 6, 10), roomWallMat);
+            leftWall.position.set(-6, 3, 4);
+            scene.add(leftWall);
+
+            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 6, 10), roomWallMat);
+            rightWall.position.set(6, 3, 4);
+            scene.add(rightWall);
+
+            // Ceiling
+            const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(12, 10), roomWallMat);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.set(0, 6, 4);
+            scene.add(ceiling);
+
+            // Operator Cabin Ceiling Fluorescent Neon Light bars
+            const lightBarGeo = new THREE.CylinderGeometry(0.08, 0.08, 6, 16);
+            const lightBarMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe });
+            const lightBar = new THREE.Mesh(lightBarGeo, lightBarMat);
+            lightBar.rotation.z = Math.PI / 2;
+            lightBar.position.set(0, 5.8, 6);
+            scene.add(lightBar);
+
+            // Cyber corner server racks (Pillars with flashing LEDs)
+            const rackGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
+            const rackMat = new THREE.MeshStandardMaterial({ color: 0x1f293d, metalness: 0.7 });
+            const leftRack = new THREE.Mesh(rackGeo, rackMat);
+            leftRack.position.set(-4.5, 2.5, 7.5);
+            scene.add(leftRack);
+
+            const rightRack = new THREE.Mesh(rackGeo, rackMat);
+            rightRack.position.set(4.5, 2.5, 7.5);
+            scene.add(rightRack);
+
+            // Operator Booth Floor
+            const opFloor = new THREE.Mesh(new THREE.PlaneGeometry(12, 10), new THREE.MeshStandardMaterial({ color: 0x0a0c10 }));
+            opFloor.rotation.x = -Math.PI / 2;
+            opFloor.position.set(0, 0.01, 4);
+            scene.add(opFloor);
+
+            // --- HIGH-FIDELITY 3D OPERATOR CONSOLE DESK ASSEMBLY ---
+            const deskGroup = new THREE.Group();
+            deskGroup.position.set(0, 0, 4.5); // Spans center of room
+            scene.add(deskGroup);
+
+            // 1. Table Top Plate (Thick dark carbon composite look)
+            const tableTop = new THREE.Mesh(
+                new THREE.BoxGeometry(6.0, 0.15, 2.2),
+                new THREE.MeshStandardMaterial({ color: 0x1a2233, metalness: 0.5, roughness: 0.6 })
+            );
+            tableTop.position.set(0, 0.8, 0);
+            tableTop.castShadow = true;
+            tableTop.receiveShadow = true;
+            deskGroup.add(tableTop);
+
+            // 2. Desk Legs (4 cylinder support steel legs)
+            const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 12);
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.2 });
+            const legOffsets = [
+                { x: -2.8, z: -0.9 },
+                { x: 2.8, z: -0.9 },
+                { x: -2.8, z: 0.9 },
+                { x: 2.8, z: 0.9 }
+            ];
+            legOffsets.forEach(offset => {
+                const leg = new THREE.Mesh(legGeo, legMat);
+                leg.position.set(offset.x, 0.4, offset.z);
+                leg.castShadow = true;
+                deskGroup.add(leg);
+            });
+
+            // 3. Desk Sub-frame Modesty Panel
+            const panel = new THREE.Mesh(
+                new THREE.BoxGeometry(5.6, 0.6, 0.05),
+                new THREE.MeshStandardMaterial({ color: 0x0f172a })
+            );
+            panel.position.set(0, 0.5, -0.85);
+            deskGroup.add(panel);
+
+            // 4. Heavy Angled Control Dashboard Console
+            const dashboard = new THREE.Mesh(
+                new THREE.BoxGeometry(3, 0.3, 0.8),
+                new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.8 })
+            );
+            dashboard.position.set(0, 0.95, -0.3);
+            dashboard.rotation.x = -0.15; // slightly angled up
+            deskGroup.add(dashboard);
+
+            // 5. Dual PCs on the desk
+            const screenStandGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.4, 8);
+            const activeScreenMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 }); // glowing blue active screen
+            const monitorBodyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 });
+            const screenGeo = new THREE.BoxGeometry(1.4, 0.8, 0.05);
+
+            // Monitor 1 (Left Workstation Screen)
+            const mon1Stand = new THREE.Mesh(screenStandGeo, legMat);
+            mon1Stand.position.set(-1.3, 1.0, -0.6);
+            deskGroup.add(mon1Stand);
+            const mon1Screen = new THREE.Mesh(screenGeo, monitorBodyMat);
+            mon1Screen.position.set(-1.3, 1.3, -0.6);
+            mon1Screen.rotation.y = 0.3; // angled towards the operator chair
+            deskGroup.add(mon1Screen);
+            const mon1Face = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.7), activeScreenMat);
+            mon1Face.position.set(0, 0, 0.026);
+            mon1Screen.add(mon1Face);
+
+            // Monitor 2 (Right Workstation Screen)
+            const mon2Stand = new THREE.Mesh(screenStandGeo, legMat);
+            mon2Stand.position.set(1.3, 1.0, -0.6);
+            deskGroup.add(mon2Stand);
+            const mon2Screen = new THREE.Mesh(screenGeo, monitorBodyMat);
+            mon2Screen.position.set(1.3, 1.3, -0.6);
+            mon2Screen.rotation.y = -0.3; // angled towards operator
+            deskGroup.add(mon2Screen);
+            const mon2Face = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.7), activeScreenMat);
+            mon2Face.position.set(0, 0, 0.026);
+            mon2Screen.add(mon2Face);
+
+            // Keyboard & Mouse models sitting on the desk top
+            const kbd = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 0.02, 0.4),
+                new THREE.MeshStandardMaterial({ color: 0x090d16 })
+            );
+            kbd.position.set(0, 0.89, 0.3);
+            deskGroup.add(kbd);
+
+            const mouse = new THREE.Mesh(
+                new THREE.BoxGeometry(0.12, 0.03, 0.2),
+                new THREE.MeshStandardMaterial({ color: 0x0f172a })
+            );
+            mouse.position.set(0.8, 0.89, 0.3);
+            deskGroup.add(mouse);
+
+            // 6. Industrial Operator Ergonomic Office Chair
+            const chairGroup = new THREE.Group();
+            chairGroup.position.set(0, 0, 6.0); // directly behind desk center
+            scene.add(chairGroup);
+            const seatBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.8), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 }));
+            seatBase.position.y = 0.9;
+            chairGroup.add(seatBase);
+            const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 }));
+            chairBack.position.set(0, 1.4, 0.45);
+            chairGroup.add(chairBack);
+            const legCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.9, 12), legMat);
+            legCyl.position.y = 0.45;
+            chairGroup.add(legCyl);
+            const starBase = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.9), legMat);
+            starBase.position.y = 0.05;
+            chairGroup.add(starBase);
+
+            // Safety Glass Window Divider Partition
+            const windowGeo = new THREE.BoxGeometry(12, 6, 0.1);
+            const windowGlass = new THREE.Mesh(windowGeo, new THREE.MeshPhysicalMaterial({
+                color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.05, transmission: 0.9
+            }));
+            windowGlass.position.set(0, 3, 2);
+            scene.add(windowGlass);
+
+            // Production Floor
+            const floorGeo = new THREE.PlaneGeometry(30, 20);
+            const floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0x07090e, roughness: 0.95 }));
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Industrial Conveyor Belt Assembly
+            const frameGeo = new THREE.BoxGeometry(12, 0.8, 1.2);
+            const frame = new THREE.Mesh(frameGeo, new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 }));
+            frame.position.set(0, 0.5, -1.5);
+            scene.add(frame);
+
+            const beltGeo = new THREE.BoxGeometry(11.8, 0.05, 1.0);
+            const belt = new THREE.Mesh(beltGeo, new THREE.MeshStandardMaterial({ color: 0x0c0f16, roughness: 0.8 }));
+            belt.position.set(0, 0.92, -1.5);
+            scene.add(belt);
+
+            // Safety Yellow Side Guards
+            const guardGeo = new THREE.BoxGeometry(12, 0.15, 0.05);
+            const guardFront = new THREE.Mesh(guardGeo, new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.5 }));
+            guardFront.position.set(0, 0.98, -0.95);
+            scene.add(guardFront);
+
+            const guardBack = new THREE.Mesh(guardGeo, new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.5 }));
+            guardBack.position.set(0, 0.98, -2.05);
+            scene.add(guardBack);
+
+            // Mechanical Actuator / Sort Piston
+            piston = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.35, 1.2), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7 }));
+            piston.position.set(-1, 1.0, -2.5);
+            scene.add(piston);
+
+            const pusherPlate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 0.1), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            pusherPlate.position.set(0, 0, 0.6);
+            piston.add(pusherPlate);
+
+            // Laser Sensor Target Emitter Beam (I:0/0 PE_SENS)
+            sensorBeam = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.015, 0.015, 1.1),
+                new THREE.MeshBasicMaterial({ color: 0xff0044, transparent: true, opacity: 0.4 })
+            );
+            sensorBeam.rotation.x = Math.PI / 2;
+            sensorBeam.position.set(-1, 1.0, -1.5);
+            scene.add(sensorBeam);
+
+            // Red Reject storage container (side chute)
+            const redBin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 1.8), new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.6 }));
+            redBin.position.set(-1, 0.3, 0.8);
+            scene.add(redBin);
+
+            // Green Delivery storage container (far end)
+            const greenBin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 1.8), new THREE.MeshStandardMaterial({ color: 0x065f46, roughness: 0.6 }));
+            greenBin.position.set(5.5, 0.3, -1.5);
+            scene.add(greenBin);
+
+            // Pole Tower Indicators
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.0), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            pole.position.set(3.5, 1.0, -3.0);
+            scene.add(pole);
+
+            const capsuleGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.3, 16);
+            lightPoleRed = new THREE.Mesh(capsuleGeo, new THREE.MeshBasicMaterial({ color: 0x3a000c }));
+            lightPoleRed.position.set(3.5, 2.15, -3.0);
+            scene.add(lightPoleRed);
+
+            lightPoleGreen = new THREE.Mesh(capsuleGeo, new THREE.MeshBasicMaterial({ color: 0x003a0c }));
+            lightPoleGreen.position.set(3.5, 1.8, -3.0);
+            scene.add(lightPoleGreen);
+
+            // Build dynamic upgrades if pre-purchased in session state
+            if (state.upgrades.pressUnlocked) build3DPress();
+            if (state.upgrades.laserUnlocked) build3DLaser();
+
+            changeCamera(1);
+
+            // Resize alignment
+            const resizeObserver = new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    camera.aspect = entry.contentRect.width / entry.contentRect.height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(entry.contentRect.width, entry.contentRect.height);
+                }
+            });
+            resizeObserver.observe(container);
+        }
+
+        // --- DYNAMIC EXPANSION MACHINERY BUILDERS ---
+        function build3DPress() {
+            if (scene.getObjectByName("pressMachineGroup")) return;
+            
+            const pressGroup = new THREE.Group();
+            pressGroup.name = "pressMachineGroup";
+            
+            // Press Support Frame Pillars
+            const pillarGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.8, 12);
+            const machineMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7 });
+            
+            const p1 = new THREE.Mesh(pillarGeo, machineMat);
+            p1.position.set(-3.5, 0.9, -2.1);
+            pressGroup.add(p1);
+            
+            const p2 = new THREE.Mesh(pillarGeo, machineMat);
+            p2.position.set(-3.5, 0.9, -0.9);
+            pressGroup.add(p2);
+            
+            // Top crossbar plate
+            const crossbar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 1.6), machineMat);
+            crossbar.position.set(-3.5, 1.8, -1.5);
+            pressGroup.add(crossbar);
+            
+            // Hydraulic cylinder piston plunger head (Animates down)
+            pressHead = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.15, 0.15, 0.6, 16),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+            );
+            pressHead.position.set(-3.5, 1.5, -1.5);
+            pressGroup.add(pressHead);
+
+            const stampAnvil = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.4), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            stampAnvil.position.set(0, -0.3, 0);
+            pressHead.add(stampAnvil);
+
+            scene.add(pressGroup);
+        }
+
+        function build3DLaser() {
+            if (scene.getObjectByName("laserStationGroup")) return;
+            
+            const laserGroup = new THREE.Group();
+            laserGroup.name = "laserStationGroup";
+            
+            const laserMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
+            const neonBlueMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe });
+            
+            // Arch support base
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.8), laserMat);
+            post.position.set(1.5, 0.9, -2.2);
+            laserGroup.add(post);
+            
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.2), laserMat);
+            arm.position.set(1.5, 1.8, -1.8);
+            laserGroup.add(arm);
+            
+            // Engraving box head
+            laserStation = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), laserMat);
+            laserStation.position.set(1.5, 1.7, -1.5);
+            laserGroup.add(laserStation);
+            
+            // Scanner indicator ring
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.15, 16), neonBlueMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.set(0, -0.16, 0);
+            laserStation.add(ring);
+
+            // Volumetric scan visual mesh (Active when engraving)
+            laserBeamMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.005, 0.3, 0.8, 16, 1, true),
+                new THREE.MeshBasicMaterial({ color: 0x00f2fe, transparent: true, opacity: 0.0 })
+            );
+            laserBeamMesh.position.set(1.5, 1.3, -1.5);
+            laserGroup.add(laserBeamMesh);
+
+            scene.add(laserGroup);
+        }
+
+        function spawnCargo() {
+            if (state.isEstop) return;
+            const isGreen = Math.random() > 0.50; // Balanced Red and Green ratio
+            
+            const box = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.5, 0.5), 
+                new THREE.MeshStandardMaterial({ color: isGreen ? 0x10b981 : 0xef4444, roughness: 0.5 })
+            );
+            box.position.set(-5.5, 1.2, -1.5);
+            
+            // Dynamic workpiece processing state tracker
+            box.userData = { 
+                isGreen: isGreen, 
+                pushed: false, 
+                zVel: 0, 
+                progress: 0,
+                isPressed: false, 
+                isEngraved: false 
+            };
+            
+            scene.add(box);
+            boxes.push(box);
+            lastSpawn = Date.now();
+            playSound('conveyor');
+        }
+
+        function changeCamera(id) {
+            playSound('click');
+            
+            const topHeader = document.getElementById('topHeader');
+            const leftCol = document.getElementById('leftCol');
+            const rightPanel = document.getElementById('rightPanel');
+            const controlDesk = document.getElementById('controlDeskContainer');
+
+            // Highlight target cam button
+            for(let i = 1; i <= 5; i++) {
+                setDOMClass(`camBtn-${i}`, i === id 
+                    ? "px-3 py-1.5 rounded font-bold bg-cyan-600 text-white shadow" 
+                    : "px-3 py-1.5 rounded font-bold text-slate-400 hover:text-white bg-slate-900 transition");
+            }
+
+            if (id === 5) {
+                // Engage First-Person Walk Mode
+                isWalkMode = true;
+                controls.enabled = false;
+                keysPressed = {}; // Flush buffer
+                
+                // Hide Rest of UI
+                setDOMClass('topHeader', 'hidden');
+                setDOMClass('rightPanel', 'hidden');
+                setDOMClass('controlDeskContainer', 'hidden');
+                leftCol.className = 'w-full flex flex-col min-h-0 relative bg-slate-950 transition-all duration-300';
+                
+                // Trigger resize fix
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+                
+                // Position player standing inside operator room facing window desk
+                camera.position.set(0, 1.8, 6.5);
+                mousePitch = 0;
+                mouseYaw = Math.PI; // Look directly at window (-Z direction) on spawn
+
+                setDOMClass('walkOverlayInstructions', 'absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 bg-slate-900/90 border border-cyan-700 px-6 py-4 rounded-xl text-center shadow-[0_0_30px_rgba(6,182,212,0.4)] pointer-events-none');
+                setDOMClass('walkHud', 'absolute top-4 right-4 z-20 bg-slate-950/95 border border-slate-800 p-4 rounded-xl flex flex-col space-y-2.5 pointer-events-none shadow-2xl w-64');
+                setDOMText('activeCamName', "CAM-05: FIRST PERSON ROAM (WASD)");
+                setDOMClass('cctvToggles', 'hidden');
+                setDOMClass('cctvHud', 'hidden');
+            } else {
+                isWalkMode = false;
+                keysPressed = {};
+                
+                // Restore UI
+                setDOMClass('topHeader', 'bg-slate-950 border-b border-slate-800 px-6 py-2 flex items-center justify-between shrink-0 z-20');
+                setDOMClass('rightPanel', 'w-full lg:w-5/12 flex flex-col min-h-0 bg-slate-950 relative transition-all duration-300');
+                setDOMClass('controlDeskContainer', 'bg-slate-900 flex flex-col shrink-0 border-t border-slate-800 relative transition-all duration-300');
+                leftCol.className = 'w-full lg:w-7/12 flex flex-col min-h-0 border-r border-slate-800 relative bg-slate-950 transition-all duration-300';
+                
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+
+                setDOMClass('walkOverlayInstructions', 'hidden');
+                setDOMClass('walkHud', 'hidden');
+                setDOMClass('cctvToggles', 'absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-black/95 p-1.5 rounded-lg border border-slate-800 flex space-x-2 backdrop-blur pointer-events-auto shadow-[0_0_25px_rgba(0,0,0,0.9)] text-xs');
+                setDOMClass('cctvHud', 'absolute top-4 left-4 z-10 bg-black/90 px-4 py-2.5 rounded border border-slate-800 backdrop-blur pointer-events-auto flex flex-col space-y-1 shadow-[0_0_20px_rgba(0,0,0,0.8)]');
+                
+                camera.position.copy(cameraPositions[id].pos);
+                if (controls) {
+                    controls.target.copy(cameraPositions[id].target);
+                    controls.update();
+                }
+                camera.lookAt(cameraPositions[id].target);
+
+                const cameraNames = {
+                    1: "CAM-01: CONTROL STATION POV",
+                    2: "CAM-02: CONVEYOR ZOOM FEED",
+                    3: "CAM-03: SORTING OVERHEAD FEED",
+                    4: "CAM-04: CHUTES & DISCHARGE BINS"
+                };
+                setDOMText('activeCamName', cameraNames[id]);
+            }
+        }
+
+        // Generate sorting cyber sparks in 3D Space
+        function spawnSortingSparks(originX, originY, originZ) {
+            if (!state.upgrades.particleSpark) return;
+
+            const count = 15;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            const vels = [];
+
+            for(let i=0; i<count*3; i+=3) {
+                pos[i] = originX;
+                pos[i+1] = originY;
+                pos[i+2] = originZ;
+                vels.push({
+                    x: (Math.random() - 0.5) * 0.15,
+                    y: Math.random() * 0.15 + 0.05,
+                    z: (Math.random() - 0.5) * 0.15
+                });
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.12,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending
+            });
+
+            const sparkSystem = new THREE.Points(geo, mat);
+            scene.add(sparkSystem);
+
+            let age = 0;
+            const animateSparks = () => {
+                const arr = sparkSystem.geometry.attributes.position.array;
+                for (let i = 0; i < count; i++) {
+                    const idx = i * 3;
+                    arr[idx] += vels[i].x;
+                    arr[idx+1] += vels[i].y;
+                    arr[idx+2] += vels[i].z;
+                    // apply slight gravity
+                    vels[i].y -= 0.005;
+                }
+                sparkSystem.geometry.attributes.position.needsUpdate = true;
+                age++;
+                if (age < 40) {
+                    requestAnimationFrame(animateSparks);
+                } else {
+                    scene.remove(sparkSystem);
+                }
+            };
+            animateSparks();
+        }
+
+        let lastSpawn = 0;
+        let prevO1State = false;
+        let prevO2State = false;
+        const clock = new THREE.Clock();
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Core PLC execution cycle scans the downloaded active memory
+            scanPLC();
+
+            const time = Date.now();
+            const isRunning = state.outputs.O0 && !state.isEstop; 
+
+            // Live-sync active workspace visual glows matches running hardware flow safely
+            updateLadderGlows();
+
+            // Safely write UI clock via DOM cache
+            const timeStr = new Date().toLocaleTimeString();
+            setDOMText('cctvTimestamp', timeStr);
+
+            // First Person WASD Look & Navigation
+            if (isWalkMode) {
+                const front = new THREE.Vector3(
+                    Math.cos(mousePitch) * Math.sin(mouseYaw),
+                    Math.sin(mousePitch),
+                    Math.cos(mousePitch) * Math.cos(mouseYaw)
+                ).normalize();
+
+                const right = new THREE.Vector3()
+                    .crossVectors(front, new THREE.Vector3(0, 1, 0))
+                    .normalize();
+
+                let nextX = camera.position.x;
+                let nextZ = camera.position.z;
+
+                if (keysPressed['w'] || keysPressed['arrowup']) {
+                    nextX += front.x * walkSpeed;
+                    nextZ += front.z * walkSpeed;
+                }
+                if (keysPressed['s'] || keysPressed['arrowdown']) {
+                    nextX -= front.x * walkSpeed;
+                    nextZ -= front.z * walkSpeed;
+                }
+                if (keysPressed['a'] || keysPressed['arrowleft']) {
+                    nextX -= right.x * walkSpeed;
+                    nextZ -= right.z * walkSpeed;
+                }
+                if (keysPressed['d'] || keysPressed['arrowright']) {
+                    nextX += right.x * walkSpeed;
+                    nextZ += right.z * walkSpeed;
+                }
+
+                // Collision bounds mapping
+                let hitsDesk = (nextX > -3.3 && nextX < 3.3) && (nextZ > 3.1 && nextZ < 5.9);
+                let hitsLeftRack = (nextX < -3.4) && (nextZ > 6.4 && nextZ < 8.6);
+                let hitsRightRack = (nextX > 3.4) && (nextZ > 6.4 && nextZ < 8.6);
+
+                if (!hitsDesk && !hitsLeftRack && !hitsRightRack) {
+                    camera.position.x = nextX;
+                    camera.position.z = nextZ;
+                } else {
+                    let testX = camera.position.x;
+                    if (keysPressed['w'] || keysPressed['arrowup']) testX += front.x * walkSpeed;
+                    if (keysPressed['s'] || keysPressed['arrowdown']) testX -= front.x * walkSpeed;
+                    if (keysPressed['a'] || keysPressed['arrowleft']) testX -= right.x * walkSpeed;
+                    if (keysPressed['d'] || keysPressed['arrowright']) testX += right.x * walkSpeed;
+
+                    let hitsDeskX = (testX > -3.3 && testX < 3.3) && (camera.position.z > 3.1 && camera.position.z < 5.9);
+                    let hitsLeftRackX = (testX < -3.4) && (camera.position.z > 6.4 && camera.position.z < 8.6);
+                    let hitsRightRackX = (testX > 3.4) && (camera.position.z > 6.4 && camera.position.z < 8.6);
+                    if (!hitsDeskX && !hitsLeftRackX && !hitsRightRackX) {
+                        camera.position.x = testX;
+                    }
+
+                    let testZ = camera.position.z;
+                    if (keysPressed['w'] || keysPressed['arrowup']) testZ += front.z * walkSpeed;
+                    if (keysPressed['s'] || keysPressed['arrowdown']) testZ -= front.z * walkSpeed;
+                    if (keysPressed['a'] || keysPressed['arrowleft']) testZ -= right.z * walkSpeed;
+                    if (keysPressed['d'] || keysPressed['arrowright']) testZ += right.z * walkSpeed;
+
+                    let hitsDeskZ = (camera.position.x > -3.3 && camera.position.x < 3.3) && (testZ > 3.1 && testZ < 5.9);
+                    let hitsLeftRackZ = (camera.position.x < -3.4) && (testZ > 6.4 && testZ < 8.6);
+                    let hitsRightRackZ = (camera.position.x > 3.4) && (testZ > 6.4 && testZ < 8.6);
+                    if (!hitsDeskZ && !hitsLeftRackZ && !hitsRightRackZ) {
+                        camera.position.z = testZ;
+                    }
+                }
+
+                camera.position.y = 1.8; 
+                camera.position.x = Math.max(-5.5, Math.min(5.5, camera.position.x));
+                camera.position.z = Math.max(4.25, Math.min(8.5, camera.position.z));
+
+                // Increased desk snap return trigger distance for much smoother exits
+                if (camera.position.z <= 6.2 && Math.abs(camera.position.x) < 4.0) {
+                    keysPressed = {}; 
+                    changeCamera(1); 
+                }
+
+                const targetLookPos = new THREE.Vector3().copy(camera.position).add(front);
+                camera.lookAt(targetLookPos);
+            } else {
+                controls.update();
+            }
+
+            // Animate floating atmospheric dust particles
+            if (dustParticles) {
+                const posArr = dustParticles.geometry.attributes.position.array;
+                for(let i = 1; i < posArr.length; i += 3) {
+                    posArr[i] -= 0.003; // slowly drift downwards
+                    if(posArr[i] < 0) {
+                        posArr[i] = 6; // respawn at ceiling level
+                    }
+                }
+                dustParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Spawn crates
+            if (isRunning && time - lastSpawn > 4200) {
+                spawnCargo();
+            }
+
+            // Sync Tower Lights
+            if (isRunning) {
+                if (lightPoleGreen.material.color.getHex() !== 0x10b981) lightPoleGreen.material.color.setHex(0x10b981);
+            } else {
+                if (lightPoleGreen.material.color.getHex() !== 0x003a0c) lightPoleGreen.material.color.setHex(0x003a0c);
+            }
+
+            if (state.isEstop) {
+                if (lightPoleRed.material.color.getHex() !== 0xef4444) lightPoleRed.material.color.setHex(0xef4444);
+            } else {
+                if (lightPoleRed.material.color.getHex() !== 0x3a000c) lightPoleRed.material.color.setHex(0x3a000c);
+            }
+
+            // Actuator piston translation & Audio edge-detector logic
+            const pistonScaleFactor = state.upgrades.fastPiston ? 0.45 : 0.25;
+            const targetZ = state.outputs.O1 ? -1.8 : -2.5;
+            piston.position.z += (targetZ - piston.position.z) * pistonScaleFactor;
+            
+            if (state.outputs.O1 && !prevO1State) {
+                playSound('piston');
+            }
+            prevO1State = state.outputs.O1;
+
+            // --- ANIMATE MACHINERY PLUNGERS ---
+            // 1. Hydraulic Press slam down logic (O:0/2 output active)
+            if (state.upgrades.pressUnlocked && pressHead) {
+                const targetPressY = state.outputs.O2 ? 1.05 : 1.5; // slams down onto belt
+                pressHead.position.y += (targetPressY - pressHead.position.y) * 0.3;
+                
+                if (state.outputs.O2 && !prevO2State) {
+                    playSound('piston');
+                }
+                prevO2State = state.outputs.O2;
+            }
+
+            // 2. Laser beam and grid sweep animation (O:0/3 active)
+            if (state.upgrades.laserUnlocked && laserBeamMesh) {
+                if (state.outputs.O3) {
+                    laserBeamMesh.material.opacity = 0.4 + Math.sin(time * 0.005) * 0.2;
+                    laserBeamMesh.rotation.y += 0.05;
+                } else {
+                    laserBeamMesh.material.opacity = 0.0;
+                }
+            }
+
+            let peTrigger = false;
+            let colTrigger = false;
+            let pressStationTrigger = false;
+            let laserStationTrigger = false;
+
+            for (let i = boxes.length - 1; i >= 0; i--) {
+                const b = boxes[i];
+
+                if (isRunning && !b.userData.pushed) {
+                    const beltSpeed = (state.conveyorSpeed / 60) * 0.035;
+                    b.position.x += beltSpeed;
+                }
+
+                // --- STAMPING PRESS DETECTOR (Bay 2 @ X = -3.5) ---
+                if (state.upgrades.pressUnlocked) {
+                    const distanceToPress = Math.abs(b.position.x - (-3.5));
+                    if (distanceToPress < 0.35) {
+                        pressStationTrigger = true; // sets Input I:0/4 PRESS_SENS
+                        
+                        // If active stamping output slashes the crate, transform material look!
+                        if (state.outputs.O2 && !b.userData.isPressed) {
+                            b.userData.isPressed = true;
+                            
+                            // Visual squashing transform
+                            b.scale.set(1.2, 0.4, 1.2);
+                            b.position.y -= 0.15; // adjust height down slightly so it rests on belt
+                            
+                            b.material.color.setHex(b.userData.isGreen ? 0x059669 : 0xb91c1c);
+                            b.material.metalness = 0.9;
+                            b.material.roughness = 0.1;
+                            spawnSortingSparks(b.position.x, b.position.y + 0.3, b.position.z);
+                        }
+                    }
+                }
+
+                // --- LASER STATION DETECTOR (Bay 3 @ X = 1.5) ---
+                if (state.upgrades.laserUnlocked) {
+                    const distanceToLaser = Math.abs(b.position.x - (1.5));
+                    if (distanceToLaser < 0.35) {
+                        laserStationTrigger = true; // sets Input I:0/5 LASER_RDY
+                        
+                        if (state.outputs.O3 && !b.userData.isEngraved) {
+                            b.userData.isEngraved = true;
+                            // Apply engraved markings look
+                            b.material.roughness = 0.95;
+                            b.material.color.multiplyScalar(0.7); // burn look
+                            
+                            // Visual Burn geometric ring on top face
+                            const engraveGeo = new THREE.RingGeometry(0.1, 0.15, 4);
+                            const engraveMat = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide });
+                            const engraveMesh = new THREE.Mesh(engraveGeo, engraveMat);
+                            engraveMesh.rotation.x = -Math.PI / 2;
+                            engraveMesh.position.y = 0.26; 
+                            b.add(engraveMesh);
+
+                            spawnSortingSparks(b.position.x, b.position.y + 0.3, b.position.z);
+                        }
+                    }
+                }
+
+                // Laser Sensor Intersection Check
+                if (Math.abs(b.position.x - (-1.0)) < 0.35 && !b.userData.pushed) {
+                    peTrigger = true;
+                    
+                    // Match crate color properties with user target selector setting
+                    if (state.targetSortColorGreen && b.userData.isGreen) {
+                        colTrigger = true; // Target green & box is green -> MATCHED
+                    } else if (!state.targetSortColorGreen && !b.userData.isGreen) {
+                        colTrigger = true; // Target red & box is red -> MATCHED
+                    }
+                }
+
+                // Sorting piston collision intersection
+                if (state.outputs.O1 && b.position.x > -1.35 && b.position.x < -0.65 && !b.userData.pushed) {
+                    b.userData.pushed = true;
+                }
+
+                // Pushed slide trajectory dropping down to the side waste bin
+                if (b.userData.pushed) {
+                    b.userData.progress += 0.08;
+                    const p = b.userData.progress;
+                    b.position.z = THREE.MathUtils.lerp(-1.5, 0.8, p);
+                    b.position.y -= 0.01;
+
+                    if (p >= 1.0) {
+                        // Item was pushed away (rejected). Dispose without payout.
+                        b.geometry.dispose();
+                        b.material.dispose();
+                        scene.remove(b);
+                        boxes.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                // Falls off standard conveyor right end into the main delivery chute
+                if (b.position.x > 5.5) {
+                    state.stats.cycles++;
+                        
+                    let validSort = false;
+
+                    // Execute Endless Order Economy validation & payouts
+                    if (OrderSystem.active) {
+                        const isTargetMatch = (OrderSystem.targetColor === 'GREEN' && b.userData.isGreen) || (OrderSystem.targetColor === 'RED' && !b.userData.isGreen);
+                        // Strict evaluation: Do not reward if accidentally modified!
+                        const pressOk = OrderSystem.requirePressed ? b.userData.isPressed : !b.userData.isPressed;
+                        const laserOk = OrderSystem.requireEngraved ? b.userData.isEngraved : !b.userData.isEngraved;
+
+                        if (isTargetMatch && pressOk && laserOk) {
+                            OrderSystem.currentCount++;
+                            validSort = true;
+                            if (OrderSystem.currentCount >= OrderSystem.targetCount) {
+                                playSound('success');
+                                state.cash += OrderSystem.reward;
+                                generateOrder(); // Generate next order request
+                            } else {
+                                updateOrderUI(); // update text
+                            }
+                        }
+                    } else {
+                        // Academy mode strict validation check (Standard boxes only)
+                        const isHmiMatch = (state.targetSortColorGreen && b.userData.isGreen) || (!state.targetSortColorGreen && !b.userData.isGreen);
+                        if (isHmiMatch && !b.userData.isPressed && !b.userData.isEngraved) {
+                            validSort = true;
+                        }
+                    }
+
+                    // Passive cash for successful strictly-matching sorts ($25 per cargo box)
+                    if (validSort) {
+                        state.cash += 25;
+                    }
+                    
+                    // Sync Cash Displays via DOMCache
+                    setDOMText('walletValue', state.cash);
+                    setDOMText('walkWalletValue', state.cash);
+                    setDOMText('cycleCounter', state.stats.cycles.toString().padStart(5, '0'));
+                    
+                    // Notify user of shopping power
+                    updateShopButtons();
+                    if (state.cash >= 50) {
+                        setDOMClass('shopAlertBadge', 'absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse');
+                    }
+
+                    b.geometry.dispose();
+                    b.material.dispose();
+                    scene.remove(b);
+                    boxes.splice(i, 1);
+                    continue;
+                }
+            }
+
+            // Bind sensor feedback to logic, unless toggled explicitly on desk override
+            if (!document.getElementById('toggleSensor0').classList.contains('bg-emerald-500')) state.inputs.I0 = peTrigger;
+            state.inputs.I1 = colTrigger; // Dynamic live color sensor mapping
+            state.inputs.I4 = pressStationTrigger; // Press proximity microswitch
+            state.inputs.I5 = laserStationTrigger; // Laser proximity microswitch
+
+            // Glowing sensor beam color transition
+            if (peTrigger) {
+                if (sensorBeam.material.color.getHex() !== 0x10b981) sensorBeam.material.color.setHex(0x10b981);
+            } else {
+                if (sensorBeam.material.color.getHex() !== 0xff0044) sensorBeam.material.color.setHex(0xff0044);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- 6. INITIALIZATION ---
+        window.onload = () => {
+            init3D();
+            renderLadder();
+            animate3D();
+            updateShopButtons();
+            
+            setTimeout(() => { startTour(); }, 600);
+        };
+    </script>
+</body>
+</html>
